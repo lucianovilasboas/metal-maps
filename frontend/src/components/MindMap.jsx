@@ -218,8 +218,9 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
   const [collapsed, setCollapsed] = useState(new Set())
   const [focoId, setFocoId] = useState(null)
   const [mostrarRel, setMostrarRel] = useState(false)
-  const [relAtivo, setRelAtivo] = useState(null)
+  const [relHoverVersion, setRelHoverVersion] = useState(0)
   const [loadVersion, setLoadVersion] = useState(0)
+  const relHoverRef = useRef(null)
   const draggedPositionsRef = useRef({})
   const reactFlowInstanceRef = useRef(null)
 
@@ -290,20 +291,21 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
       }
     }
 
-    if (mostrarRel && relAtivo && documento) {
+    const hoverId = mostrarRel && relHoverRef.current ? relHoverRef.current : null
+    if (hoverId && documento) {
       const nodeMap = {}
       g.nodes.forEach((n) => { nodeMap[n.id] = n })
       for (const cap of documento.capitulos) {
         for (const art of cap.artigos) {
-          if (`art-${art.id}` === relAtivo) {
+          if (`art-${art.id}` === hoverId) {
             const rels = (art.relacionados || []).slice(0, 5)
             rels.forEach((rel) => {
               const relId = `art-${rel.id}`
-              if (relId !== relAtivo && nodeMap[relId]) {
-                const h = bestHandles(nodeMap[relAtivo], nodeMap[relId])
+              if (relId !== hoverId && nodeMap[relId]) {
+                const h = bestHandles(nodeMap[hoverId], nodeMap[relId])
                 g.edges.push({
-                  id: `e-rel-${relAtivo}-${relId}`,
-                  source: relAtivo,
+                  id: `e-rel-${hoverId}-${relId}`,
+                  source: hoverId,
                   target: relId,
                   sourceHandle: h.sourceHandle,
                   targetHandle: h.targetHandle,
@@ -326,7 +328,7 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
       return { ...n, data: { ...n.data, blurred } }
     })
     return g
-  }, [documento, collapsed, handleToggle, loadVersion, focoId, mostrarRel, relAtivo])
+  }, [documento, collapsed, handleToggle, loadVersion, focoId, mostrarRel, relHoverVersion])
 
   const [nodes, setNodes, onNodesChange] = useNodesState(graph.nodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(graph.edges)
@@ -371,21 +373,17 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
   }, [setEdges, documento?.slug, collapsed, onSalvarPosicoes])
 
   const onNodeClick = useCallback((_, node) => {
-    if (node.type === 'articleNode' && documento) {
-      if (mostrarRel) {
-        setRelAtivo((prev) => (prev === node.id ? null : node.id))
-      } else if (onSelectArtigo) {
-        for (const cap of documento.capitulos || []) {
-          for (const art of cap.artigos || []) {
-            if (`art-${art.id}` === node.id) {
-              onSelectArtigo(art)
-              break
-            }
+    if (node.type === 'articleNode' && onSelectArtigo && documento) {
+      for (const cap of documento.capitulos || []) {
+        for (const art of cap.artigos || []) {
+          if (`art-${art.id}` === node.id) {
+            onSelectArtigo(art)
+            break
           }
         }
       }
     }
-  }, [documento, onSelectArtigo, mostrarRel])
+  }, [documento, onSelectArtigo])
 
   const onNodeDoubleClick = useCallback((_, node) => {
     if (node.type === 'chapterNode') {
@@ -393,10 +391,23 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
     }
   }, [])
 
+  const onNodeMouseEnter = useCallback((_, node) => {
+    if (node.type === 'articleNode' && mostrarRel) {
+      relHoverRef.current = node.id
+      setRelHoverVersion((v) => v + 1)
+    }
+  }, [mostrarRel])
+
+  const onNodeMouseLeave = useCallback(() => {
+    if (relHoverRef.current) {
+      relHoverRef.current = null
+      setRelHoverVersion((v) => v + 1)
+    }
+  }, [])
+
   const onPaneClick = useCallback(() => {
     if (focoId) setFocoId(null)
-    if (relAtivo) setRelAtivo(null)
-  }, [focoId, relAtivo])
+  }, [focoId])
 
   useEffect(() => {
     if (!focoId) {
@@ -432,6 +443,8 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
         onEdgesChange={onEdgesChange}
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
+        onNodeMouseEnter={onNodeMouseEnter}
+        onNodeMouseLeave={onNodeMouseLeave}
         onNodeDragStop={onNodeDragStop}
         onPaneClick={onPaneClick}
         nodeTypes={nodeTypes}
