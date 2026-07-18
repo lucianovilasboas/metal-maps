@@ -214,6 +214,7 @@ function radialLayout(documento, collapsed, draggedPositions) {
 
 export default function MindMap({ documento, onSelectArtigo }) {
   const [collapsed, setCollapsed] = useState(new Set())
+  const [loadVersion, setLoadVersion] = useState(0)
   const draggedPositionsRef = useRef({})
   const reactFlowInstanceRef = useRef(null)
 
@@ -225,6 +226,7 @@ export default function MindMap({ documento, onSelectArtigo }) {
     } else {
       draggedPositionsRef.current = {}
     }
+    setLoadVersion((v) => v + 1)
   }, [documento?.slug])
 
   const handleToggle = useCallback((capId) => {
@@ -248,7 +250,7 @@ export default function MindMap({ documento, onSelectArtigo }) {
       return n
     })
     return g
-  }, [documento, collapsed, handleToggle])
+  }, [documento, collapsed, handleToggle, loadVersion])
 
   const [nodes, setNodes, onNodesChange] = useNodesState(graph.nodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(graph.edges)
