@@ -217,6 +217,8 @@ function radialLayout(documento, collapsed, draggedPositions) {
 export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes }) {
   const [collapsed, setCollapsed] = useState(new Set())
   const [focoId, setFocoId] = useState(null)
+  const [mostrarRel, setMostrarRel] = useState(false)
+  const [relAtivo, setRelAtivo] = useState(null)
   const [loadVersion, setLoadVersion] = useState(0)
   const draggedPositionsRef = useRef({})
   const reactFlowInstanceRef = useRef(null)
@@ -288,6 +290,34 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
       }
     }
 
+    if (mostrarRel && relAtivo && documento) {
+      const nodeMap = {}
+      g.nodes.forEach((n) => { nodeMap[n.id] = n })
+      for (const cap of documento.capitulos) {
+        for (const art of cap.artigos) {
+          if (`art-${art.id}` === relAtivo) {
+            const rels = (art.relacionados || []).slice(0, 5)
+            rels.forEach((rel) => {
+              const relId = `art-${rel.id}`
+              if (relId !== relAtivo && nodeMap[relId]) {
+                const h = bestHandles(nodeMap[relAtivo], nodeMap[relId])
+                g.edges.push({
+                  id: `e-rel-${relAtivo}-${relId}`,
+                  source: relAtivo,
+                  target: relId,
+                  sourceHandle: h.sourceHandle,
+                  targetHandle: h.targetHandle,
+                  type: 'smoothstep',
+                  style: { stroke: '#93c5fd', strokeWidth: 1.5, strokeDasharray: '4 4' },
+                })
+              }
+            })
+            break
+          }
+        }
+      }
+    }
+
     g.nodes = g.nodes.map((n) => {
       const blurred = focusSet ? !focusSet.has(n.id) : false
       if (n.type === 'chapterNode') {
@@ -296,7 +326,7 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
       return { ...n, data: { ...n.data, blurred } }
     })
     return g
-  }, [documento, collapsed, handleToggle, loadVersion, focoId])
+  }, [documento, collapsed, handleToggle, loadVersion, focoId, mostrarRel, relAtivo])
 
   const [nodes, setNodes, onNodesChange] = useNodesState(graph.nodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(graph.edges)
@@ -346,12 +376,15 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
         for (const art of cap.artigos || []) {
           if (`art-${art.id}` === node.id) {
             onSelectArtigo(art)
-            return
+            break
           }
         }
       }
+      if (mostrarRel) {
+        setRelAtivo((prev) => (prev === node.id ? null : node.id))
+      }
     }
-  }, [documento, onSelectArtigo])
+  }, [documento, onSelectArtigo, mostrarRel])
 
   const onNodeDoubleClick = useCallback((_, node) => {
     if (node.type === 'chapterNode') {
@@ -361,7 +394,8 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
 
   const onPaneClick = useCallback(() => {
     if (focoId) setFocoId(null)
-  }, [focoId])
+    if (relAtivo) setRelAtivo(null)
+  }, [focoId, relAtivo])
 
   useEffect(() => {
     if (!focoId) {
@@ -410,6 +444,17 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
         maxZoom={2}
       >
         <Controls showInteractive={false} />
+        <button
+          onClick={() => setMostrarRel((v) => !v)}
+          className={`absolute bottom-20 left-4 z-10 w-8 h-8 flex items-center justify-center rounded text-xs font-bold border shadow-sm transition-colors ${
+            mostrarRel
+              ? 'bg-blue-500 text-white border-blue-600'
+              : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-100'
+          }`}
+          title={mostrarRel ? 'Desligar relações' : 'Ligar relações entre artigos'}
+        >
+          R
+        </button>
         <MiniMap
           nodeStrokeColor="#9ca3af"
           nodeColor={(n) =>
