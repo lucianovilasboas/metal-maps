@@ -220,14 +220,34 @@ export default function MindMap({ documento, onSelectArtigo }) {
 
   useEffect(() => {
     if (!documento?.slug) return
-    const saved = localStorage.getItem(`mm-pos-${documento.slug}`)
+    const saved = localStorage.getItem(`mm-state-${documento.slug}`)
     if (saved) {
-      try { draggedPositionsRef.current = JSON.parse(saved) } catch { draggedPositionsRef.current = {} }
+      try {
+        const data = JSON.parse(saved)
+        draggedPositionsRef.current = data.positions || {}
+        setCollapsed(new Set(data.collapsed || []))
+      } catch {
+        draggedPositionsRef.current = {}
+        setCollapsed(new Set())
+      }
     } else {
       draggedPositionsRef.current = {}
+      setCollapsed(new Set())
     }
     setLoadVersion((v) => v + 1)
   }, [documento?.slug])
+
+  function saveState() {
+    if (!documento?.slug) return
+    localStorage.setItem(`mm-state-${documento.slug}`, JSON.stringify({
+      positions: draggedPositionsRef.current,
+      collapsed: [...collapsed],
+    }))
+  }
+
+  useEffect(() => {
+    if (loadVersion > 0) saveState()
+  }, [collapsed, documento?.slug, loadVersion])
 
   const handleToggle = useCallback((capId) => {
     setCollapsed((prev) => {
@@ -269,7 +289,12 @@ export default function MindMap({ documento, onSelectArtigo }) {
     draggedPositionsRef.current[node.id] = { x: node.position.x, y: node.position.y }
 
     if (documento?.slug) {
-      localStorage.setItem(`mm-pos-${documento.slug}`, JSON.stringify(draggedPositionsRef.current))
+      const existing = localStorage.getItem(`mm-state-${documento.slug}`)
+      let state
+      try { state = existing ? JSON.parse(existing) : {} } catch { state = {} }
+      state.positions = draggedPositionsRef.current
+      state.collapsed = [...collapsed]
+      localStorage.setItem(`mm-state-${documento.slug}`, JSON.stringify(state))
     }
 
     const currentEdges = edgesRef.current
@@ -285,7 +310,7 @@ export default function MindMap({ documento, onSelectArtigo }) {
     })
 
     setEdges(updatedEdges)
-  }, [setEdges, documento?.slug])
+  }, [setEdges, documento?.slug, collapsed])
 
   const onNodeClick = useCallback((_, node) => {
     if (node.type === 'articleNode' && onSelectArtigo && documento) {
