@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toCanvas } from 'html-to-image'
 import Header from './components/Header'
 import Sidebar from './components/Sidebar'
@@ -28,6 +28,7 @@ export default function App() {
   const [searchLoading, setSearchLoading] = useState(false)
   const [activeSlug, setActiveSlug] = useState(null)
   const mindMapRef = useRef(null)
+  const queryClient = useQueryClient()
 
   const { data: docsList } = useQuery({
     queryKey: ['documentos'],
@@ -72,8 +73,9 @@ export default function App() {
     if (doc) {
       setDocumento(doc)
       setActiveSlug(doc.slug)
+      queryClient.invalidateQueries({ queryKey: ['documentos'] })
     }
-  }, [])
+  }, [queryClient])
 
   const handleSalvarPosicoes = useCallback((posicoes) => {
     if (documento?.slug) {

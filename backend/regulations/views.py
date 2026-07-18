@@ -94,6 +94,8 @@ def upload_json(request):
         for j, art_data in enumerate(cap_data.get('artigos', [])):
             id_code = art_data.get('id', f'art{j+1}')
             relacionados_ids = art_data.get('relacionados', [])
+            if relacionados_ids and isinstance(relacionados_ids[0], dict):
+                relacionados_ids = [r.get('id_code', str(r.get('id', ''))) for r in relacionados_ids]
             if relacionados_ids:
                 try:
                     artigo = Artigo.objects.get(capitulo__documento=doc, id_code=id_code)
