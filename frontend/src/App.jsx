@@ -15,20 +15,24 @@ export default function App() {
   const [showUploadText, setShowUploadText] = useState(false)
   const [searchResults, setSearchResults] = useState(null)
   const [searchLoading, setSearchLoading] = useState(false)
+  const [activeSlug, setActiveSlug] = useState(null)
 
   const { data: docsList } = useQuery({
     queryKey: ['documentos'],
     queryFn: listarDocumentos,
   })
 
+  const loadDocumento = useCallback((slug) => {
+    setSearchResults(null)
+    setActiveSlug(slug)
+    detalheDocumento(slug).then((doc) => setDocumento(doc))
+  }, [])
+
   useEffect(() => {
-    if (docsList?.length > 0) {
-      const slug = docsList[0].slug
-      detalheDocumento(slug).then((doc) => {
-        setDocumento(doc)
-      })
+    if (docsList?.length > 0 && !activeSlug) {
+      loadDocumento(docsList[0].slug)
     }
-  }, [docsList])
+  }, [docsList, activeSlug, loadDocumento])
 
   const handleSelectArtigo = useCallback((artigo) => {
     setArtigoModal(artigo)
@@ -55,12 +59,16 @@ export default function App() {
     const doc = data.capitulos ? data : data.documentos?.[0]
     if (doc) {
       setDocumento(doc)
+      setActiveSlug(doc.slug)
     }
   }, [])
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       <Header
+        docsList={docsList}
+        activeSlug={activeSlug}
+        onSelectDocumento={loadDocumento}
         onSearch={handleSearch}
         onUploadJSON={() => setShowUploadJSON(true)}
         onUploadText={() => setShowUploadText(true)}

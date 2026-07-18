@@ -166,6 +166,7 @@ npm run build        # gera dist/ para produção via Django
 ## Próximos passos sugeridos
 
 - [x] Persistir posições dos nós no localStorage (fase 1)
+- [x] Suporte a múltiplos documentos simultâneos (fase 3)
 - [ ] Persistir posições dos nós no backend
 - [ ] Suporte a múltiplos documentos simultâneos
 - [ ] Temas dark/light
