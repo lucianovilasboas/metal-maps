@@ -76,6 +76,10 @@ function ArticleNode({ data }) {
       <Handle type="target" position={Position.Right} id="right" isConnectable={false} style={HANDLE_STYLE} />
       <Handle type="target" position={Position.Bottom} id="bottom" isConnectable={false} style={HANDLE_STYLE} />
       <Handle type="target" position={Position.Left} id="left" isConnectable={false} style={HANDLE_STYLE} />
+      <Handle type="source" position={Position.Top} id="top" isConnectable={false} style={HANDLE_STYLE} />
+      <Handle type="source" position={Position.Right} id="right" isConnectable={false} style={HANDLE_STYLE} />
+      <Handle type="source" position={Position.Bottom} id="bottom" isConnectable={false} style={HANDLE_STYLE} />
+      <Handle type="source" position={Position.Left} id="left" isConnectable={false} style={HANDLE_STYLE} />
       <span className="text-xs text-blue-500 font-mono shrink-0">{data.id_code}</span>
       <span className="truncate text-gray-700 text-xs">{data.label}</span>
     </div>
@@ -225,7 +229,6 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
   const relHoverRef = useRef(null)
   const draggedPositionsRef = useRef({})
   const reactFlowInstanceRef = useRef(null)
-  const relDebugRef = useRef({ totalRel: 0, edgesCriadas: 0, artigosComRel: 0 })
 
   useEffect(() => {
     if (!documento?.slug) return
@@ -307,20 +310,14 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
     if (mostrarRel && documento) {
       const nodeMap = {}
       g.nodes.forEach((n) => { nodeMap[n.id] = n })
-      let artigosComRel = 0
-      let totalRel = 0
-      let edgesCriadas = 0
       for (const cap of documento.capitulos) {
         for (const art of cap.artigos) {
           const artId = `art-${art.id}`
-          const rels = (art.relacionados || []).slice(0, 5)
-          if (rels.length > 0) artigosComRel++
-          totalRel += rels.length
           if (!nodeMap[artId]) continue
+          const rels = (art.relacionados || []).slice(0, 5)
           rels.forEach((rel) => {
             const relId = `art-${rel.id}`
             if (relId !== artId && nodeMap[relId]) {
-              edgesCriadas++
               const h = bestHandles(nodeMap[artId], nodeMap[relId])
               g.edges.push({
                 id: `e-rel-${artId}-${relId}`,
@@ -335,7 +332,6 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
           })
         }
       }
-      relDebugRef.current = { totalRel, edgesCriadas, artigosComRel }
     }
 
     g.nodes = g.nodes.map((n) => {
@@ -474,13 +470,6 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
         >
           R
         </button>
-        {mostrarRel && (
-          <div className="absolute bottom-4 left-4 z-10 bg-white/90 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-600 shadow-sm">
-            Artigos c/ relações: {relDebugRef.current.artigosComRel} |
-            Relações total: {relDebugRef.current.totalRel} |
-            Arestas criadas: {relDebugRef.current.edgesCriadas}
-          </div>
-        )}
         <MiniMap
           nodeStrokeColor="#9ca3af"
           nodeColor={(n) =>
