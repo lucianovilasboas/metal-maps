@@ -336,6 +336,7 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
         }
       }
       relDebugRef.current = { totalRel, edgesCriadas, artigosComRel }
+    }
 
     g.nodes = g.nodes.map((n) => {
       const blurred = focusSet ? !focusSet.has(n.id) : false
