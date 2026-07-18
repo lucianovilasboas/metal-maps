@@ -88,7 +88,7 @@ export default function App() {
   }, [documento])
 
   const handleExportPNG = useCallback(async () => {
-    const el = mindMapRef.current
+    const el = mindMapRef.current?.querySelector('.react-flow__renderer')
     if (!el) return
     try {
       const canvas = await toCanvas(el, {
