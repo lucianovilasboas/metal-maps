@@ -225,6 +225,7 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
   const relHoverRef = useRef(null)
   const draggedPositionsRef = useRef({})
   const reactFlowInstanceRef = useRef(null)
+  const relDebugRef = useRef({ totalRel: 0, edgesCriadas: 0, artigosComRel: 0 })
 
   useEffect(() => {
     if (!documento?.slug) return
@@ -303,34 +304,38 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
       }
     }
 
-    const hoverId = mostrarRel && relHoverRef.current ? relHoverRef.current : null
-    if (hoverId && documento) {
+    if (mostrarRel && documento) {
       const nodeMap = {}
       g.nodes.forEach((n) => { nodeMap[n.id] = n })
+      let artigosComRel = 0
+      let totalRel = 0
+      let edgesCriadas = 0
       for (const cap of documento.capitulos) {
         for (const art of cap.artigos) {
-          if (`art-${art.id}` === hoverId) {
-            const rels = (art.relacionados || []).slice(0, 5)
-            rels.forEach((rel) => {
-              const relId = `art-${rel.id}`
-              if (relId !== hoverId && nodeMap[relId]) {
-                const h = bestHandles(nodeMap[hoverId], nodeMap[relId])
-                g.edges.push({
-                  id: `e-rel-${hoverId}-${relId}`,
-                  source: hoverId,
-                  target: relId,
-                  sourceHandle: h.sourceHandle,
-                  targetHandle: h.targetHandle,
-                  type: 'smoothstep',
-                  style: { stroke: '#93c5fd', strokeWidth: 1.5, strokeDasharray: '4 4' },
-                })
-              }
-            })
-            break
-          }
+          const artId = `art-${art.id}`
+          const rels = (art.relacionados || []).slice(0, 5)
+          if (rels.length > 0) artigosComRel++
+          totalRel += rels.length
+          if (!nodeMap[artId]) continue
+          rels.forEach((rel) => {
+            const relId = `art-${rel.id}`
+            if (relId !== artId && nodeMap[relId]) {
+              edgesCriadas++
+              const h = bestHandles(nodeMap[artId], nodeMap[relId])
+              g.edges.push({
+                id: `e-rel-${artId}-${relId}`,
+                source: artId,
+                target: relId,
+                sourceHandle: h.sourceHandle,
+                targetHandle: h.targetHandle,
+                type: 'smoothstep',
+                style: { stroke: '#93c5fd', strokeWidth: 1.5, strokeDasharray: '4 4' },
+              })
+            }
+          })
         }
       }
-    }
+      relDebugRef.current = { totalRel, edgesCriadas, artigosComRel }
 
     g.nodes = g.nodes.map((n) => {
       const blurred = focusSet ? !focusSet.has(n.id) : false
@@ -468,6 +473,13 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
         >
           R
         </button>
+        {mostrarRel && (
+          <div className="absolute bottom-4 left-4 z-10 bg-white/90 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-600 shadow-sm">
+            Artigos c/ relações: {relDebugRef.current.artigosComRel} |
+            Relações total: {relDebugRef.current.totalRel} |
+            Arestas criadas: {relDebugRef.current.edgesCriadas}
+          </div>
+        )}
         <MiniMap
           nodeStrokeColor="#9ca3af"
           nodeColor={(n) =>
