@@ -371,17 +371,18 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
   }, [setEdges, documento?.slug, collapsed, onSalvarPosicoes])
 
   const onNodeClick = useCallback((_, node) => {
-    if (node.type === 'articleNode' && onSelectArtigo && documento) {
-      for (const cap of documento.capitulos || []) {
-        for (const art of cap.artigos || []) {
-          if (`art-${art.id}` === node.id) {
-            onSelectArtigo(art)
-            break
-          }
-        }
-      }
+    if (node.type === 'articleNode' && documento) {
       if (mostrarRel) {
         setRelAtivo((prev) => (prev === node.id ? null : node.id))
+      } else if (onSelectArtigo) {
+        for (const cap of documento.capitulos || []) {
+          for (const art of cap.artigos || []) {
+            if (`art-${art.id}` === node.id) {
+              onSelectArtigo(art)
+              break
+            }
+          }
+        }
       }
     }
   }, [documento, onSelectArtigo, mostrarRel])
@@ -446,7 +447,7 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
         <Controls showInteractive={false} />
         <button
           onClick={() => setMostrarRel((v) => !v)}
-          className={`absolute bottom-20 left-4 z-10 w-8 h-8 flex items-center justify-center rounded text-xs font-bold border shadow-sm transition-colors ${
+          className={`absolute top-20 right-4 z-10 w-8 h-8 flex items-center justify-center rounded text-xs font-bold border shadow-sm transition-colors ${
             mostrarRel
               ? 'bg-blue-500 text-white border-blue-600'
               : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-100'
