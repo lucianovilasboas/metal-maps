@@ -1,0 +1,101 @@
+{
+  "regulamento": "Regulamento Disciplinar Discente - IFMG",
+  "resolucao": "Nº 8 de 20 de Março de 2018",
+  "estrutura": [
+    {
+      "capitulo": "I - Das Diretrizes da Conduta Discente",
+      "artigos": [
+        {"id": 1, "titulo": "Finalidade", "descricao": "Orientar o corpo discente para cumprimento das normas, visando formação integral e autodisciplina."},
+        {"id": 2, "titulo": "Princípios", "itens": ["Emancipação do discente", "Fortalecimento de relações interpessoais", "Cumprimento de atividades acadêmicas", "Zelo pelo patrimônio"]},
+        {"id": 3, "titulo": "Convivência Democrática", "descricao": "Responsabilidade de todos os que constituem a comunidade."},
+        {"id": 4, "titulo": "Definição de Falta", "descricao": "Ação ou omissão ocorrida nas dependências ou em exercício de atividade vinculada ao IFMG."},
+        {"id": 5, "titulo": "Legalidade", "descricao": "Observância aos princípios constitucionais e normas vigentes."}
+      ]
+    },
+    {
+      "capitulo": "II - Constituição da Comunidade e Corpo Discente",
+      "artigos": [
+        {"id": 6, "titulo": "Comunidade Escolar", "descricao": "Servidores, terceirizados, discentes, estagiários, pais e visitantes."},
+        {"id": 7, "titulo": "Corpo Discente", "tipos": ["Regime Residencial", "Regime Semi-residencial", "Regime Externo"]},
+        {"id": 8, "titulo": "Responsabilidades da Família", "itens": ["Acompanhamento permanente", "Comparecimento à escola", "Responsabilidade por infrações do dependente"]}
+      ]
+    },
+    {
+      "capitulo": "III - Dos Direitos do Corpo Discente",
+      "artigos": [
+        {
+          "id": 9, 
+          "titulo": "Direitos (26 itens)", 
+          "folhas": [
+            "1. Educação de qualidade", "2. Acesso ao Regulamento Disciplinar", "3. Tratamento com respeito e sem discriminação",
+            "4. Revisão de avaliações", "5. Segunda oportunidade de avaliação", "6. Participar de atividades artísticas/esportivas",
+            "7. Ampla defesa", "8. Integridade emocional, física e moral"
+          ]
+        }
+      ]
+    },
+    {
+      "capitulo": "IV - Dos Deveres do Corpo Discente",
+      "artigos": [
+        {
+          "id": 10, 
+          "titulo": "Deveres (28 itens)", 
+          "folhas": [
+            "1. Respeitar a organização pedagógica", "2. Urbanidade e ética", "3. Zelar pela conservação das instalações",
+            "4. Indenizar danos ao patrimônio", "5. Assiduidade e pontualidade", "6. Traje adequado",
+            "7. Zelar por pertences pessoais", "8. Cumprir este Regulamento"
+          ]
+        }
+      ]
+    },
+    {
+      "capitulo": "V - Das Faltas Disciplinares",
+      "artigos": [
+        {
+          "id": 11, 
+          "titulo": "Faltas (38 itens)", 
+          "folhas": [
+            "1. Fraude em avaliações", "2. Uso indevido de eletrônicos", "3. Fumar no campus", "4. Bullying e Cyberbullying",
+            "5. Agressão física ou verbal", "6. Trotes", "7. Álcool e drogas", "8. Ato sexual nas dependências",
+            "9. Alterar documentos oficiais", "10. Furtar ou roubar"
+          ]
+        }
+      ]
+    },
+    {
+      "capitulo": "VI - Das Medidas Disciplinares",
+      "artigos": [
+        {"id": 12, "titulo": "Tipos de Medidas", "lista": ["Advertência Oral", "Advertência por Escrito", "Atividades Socioeducativas", "Suspensão", "Perda de Regime Residencial", "Desligamento"]},
+        {"id": 13, "titulo": "Advertência Oral", "aplicacao": "Incisos I a VII do Art. 11"},
+        {"id": 14, "titulo": "Advertência Escrita", "aplicacao": "Reincidência de oral ou Incisos VIII a XVI do Art. 11"},
+        {"id": 15, "titulo": "Atividades Socioeducativas", "descricao": "Reuniões, projetos pedagógicos ou sociais formativos"},
+        {"id": 16, "titulo": "Suspensão", "regras": ["Máximo 10 dias letivos", "Perda de reposição de provas", "Atividades reflexivas no campus"]},
+        {"id": 19, "titulo": "Desligamento de Matrícula", "causas": ["Incisos XXXVI a XXXVIII do Art. 11", "3 reincidências de suspensão"]}
+      ]
+    },
+    {
+      "capitulo": "VII - Do Processo Disciplinar",
+      "artigos": [
+        {"id": 25, "titulo": "Etapas do Processo", "lista": ["Registro", "Encaminhamento", "Ata", "Defesa Escrita", "Relatório", "Parecer"]},
+        {"id": 28, "titulo": "Prazos", "descricao": "Conclusão em 20 dias letivos (geral) ou 30 dias letivos (desligamento)"},
+        {"id": 29, "titulo": "Defesa", "descricao": "2 dias letivos para apresentar defesa escrita após comunicação."},
+        {"id": 31, "titulo": "Recurso", "descricao": "Prazo de 2 dias letivos para recorrer à autoridade superior."}
+      ]
+    },
+    {
+      "capitulo": "VIII - Da Comissão Disciplinar Discente (CDD)",
+      "artigos": [
+        {"id": 35, "titulo": "Composição", "descricao": "Mínimo 5 membros (docentes, técnicos e discentes)"},
+        {"id": 36, "titulo": "Medidas Formativas", "descricao": "Adoção de orientações ao discente e familiares."}
+      ]
+    },
+    {
+      "capitulo": "IX - Das Disposições Gerais e Finais",
+      "artigos": [
+        {"id": 41, "titulo": "Perda de Cargo", "descricao": "Destituição automática de cargos de representação se responder a processo."},
+        {"id": 43, "titulo": "Atividades Extracurriculares", "descricao": "Proibição de participação durante suspensão."},
+        {"id": 45, "titulo": "Atos Ilícitos", "descricao": "Encaminhamento aos órgãos legais competentes."}
+      ]
+    }
+  ]
+}

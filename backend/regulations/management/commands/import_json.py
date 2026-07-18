@@ -1,0 +1,64 @@
+import json
+from django.core.management.base import BaseCommand
+from regulations.models import Documento, Capitulo, Artigo
+
+
+class Command(BaseCommand):
+    help = 'Importa um JSON de documento para o banco'
+
+    def add_arguments(self, parser):
+        parser.add_argument('json_path', type=str)
+
+    def handle(self, *args, **options):
+        path = options['json_path']
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        docs = data.get('documentos', [data]) if isinstance(data, dict) else data
+
+        for doc_data in docs:
+            titulo = doc_data.get('titulo', 'Documento')
+            slug = doc_data.get('slug', titulo.lower().replace(' ', '-'))
+            capitulos = doc_data.get('capitulos', [])
+
+            doc, created = Documento.objects.get_or_create(
+                slug=slug, defaults={'titulo': titulo}
+            )
+            if not created:
+                doc.titulo = titulo
+                doc.save()
+                doc.capitulos.all().delete()
+
+            for i, cap_data in enumerate(capitulos):
+                cap = Capitulo.objects.create(
+                    documento=doc,
+                    id_code=cap_data.get('id', f'cap{i+1}'),
+                    titulo=cap_data.get('titulo', ''),
+                    ordem=i + 1,
+                )
+                for j, art_data in enumerate(cap_data.get('artigos', [])):
+                    Artigo.objects.create(
+                        capitulo=cap,
+                        id_code=art_data.get('id', f'art{j+1}'),
+                        titulo=art_data.get('titulo', ''),
+                        texto=art_data.get('texto', ''),
+                        ordem=j + 1,
+                    )
+
+            for i, cap_data in enumerate(capitulos):
+                for j, art_data in enumerate(cap_data.get('artigos', [])):
+                    id_code = art_data.get('id', f'art{j+1}')
+                    rel_ids = art_data.get('relacionados', [])
+                    if rel_ids:
+                        try:
+                            artigo = Artigo.objects.get(capitulo__documento=doc, id_code=id_code)
+                            for rid in rel_ids:
+                                try:
+                                    rel = Artigo.objects.get(capitulo__documento=doc, id_code=rid)
+                                    artigo.relacionados.add(rel)
+                                except Artigo.DoesNotExist:
+                                    pass
+                        except Artigo.DoesNotExist:
+                            pass
+
+            self.stdout.write(self.style.SUCCESS(f'Importado: {doc.titulo} ({doc.slug})'))

@@ -1,0 +1,323 @@
+import { useMemo, useCallback, useState, useEffect, useRef } from 'react'
+import {
+  ReactFlow,
+  MiniMap,
+  Controls,
+  Background,
+  Handle,
+  Position,
+  useNodesState,
+  useEdgesState,
+} from '@xyflow/react'
+import '@xyflow/react/dist/style.css'
+
+const R1 = 180
+const R2 = 340
+const NODE_W = 200
+const NODE_H = 48
+const ROOT_W = 220
+const ROOT_H = 56
+
+const HANDLE_STYLE = { opacity: 0, pointerEvents: 'none' }
+
+function DocNode({ data }) {
+  return (
+    <div className="px-6 py-3 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-full shadow-xl border-2 border-blue-400 flex items-center justify-center gap-2 select-none"
+      style={{ width: ROOT_W, height: ROOT_H }}
+    >
+      <Handle type="source" position={Position.Top} id="top" isConnectable={false} style={HANDLE_STYLE} />
+      <Handle type="source" position={Position.Right} id="right" isConnectable={false} style={HANDLE_STYLE} />
+      <Handle type="source" position={Position.Bottom} id="bottom" isConnectable={false} style={HANDLE_STYLE} />
+      <Handle type="source" position={Position.Left} id="left" isConnectable={false} style={HANDLE_STYLE} />
+      <span className="text-2xl">📜</span>
+      <span className="text-sm font-bold truncate">{data.label}</span>
+    </div>
+  )
+}
+
+function ChapterNode({ data }) {
+  const collapsed = data.collapsed
+  return (
+    <div
+      onClick={data.onToggle}
+      className={`px-5 py-2 rounded-full border-2 font-medium transition-all cursor-grab active:cursor-grabbing select-none flex items-center justify-center gap-2 ${
+        collapsed
+          ? 'bg-white border-amber-300 text-amber-700 shadow-sm hover:shadow-md hover:border-amber-400'
+          : 'bg-amber-100 border-amber-400 text-amber-900 shadow-md'
+      }`}
+      style={{ width: NODE_W, height: NODE_H }}
+    >
+      <Handle type="target" position={Position.Top} id="top" isConnectable={false} style={HANDLE_STYLE} />
+      <Handle type="target" position={Position.Right} id="right" isConnectable={false} style={HANDLE_STYLE} />
+      <Handle type="target" position={Position.Bottom} id="bottom" isConnectable={false} style={HANDLE_STYLE} />
+      <Handle type="target" position={Position.Left} id="left" isConnectable={false} style={HANDLE_STYLE} />
+      <Handle type="source" position={Position.Top} id="top" isConnectable={false} style={HANDLE_STYLE} />
+      <Handle type="source" position={Position.Right} id="right" isConnectable={false} style={HANDLE_STYLE} />
+      <Handle type="source" position={Position.Bottom} id="bottom" isConnectable={false} style={HANDLE_STYLE} />
+      <Handle type="source" position={Position.Left} id="left" isConnectable={false} style={HANDLE_STYLE} />
+      <span className="text-xs shrink-0">{collapsed ? '▶' : '▼'}</span>
+      <span className="text-xs truncate font-semibold">{data.label}</span>
+      <span className="text-xs bg-amber-200 text-amber-700 px-2 py-0.5 rounded-full shrink-0">{data.count}</span>
+    </div>
+  )
+}
+
+function ArticleNode({ data }) {
+  return (
+    <div
+      className="px-4 py-2 rounded-full border border-gray-200 bg-white text-sm cursor-grab active:cursor-grabbing transition-all hover:border-blue-400 hover:shadow-lg hover:bg-blue-50 select-none flex items-center gap-2"
+      style={{ width: NODE_W - 20, height: NODE_H - 8, minHeight: 40 }}
+    >
+      <Handle type="target" position={Position.Top} id="top" isConnectable={false} style={HANDLE_STYLE} />
+      <Handle type="target" position={Position.Right} id="right" isConnectable={false} style={HANDLE_STYLE} />
+      <Handle type="target" position={Position.Bottom} id="bottom" isConnectable={false} style={HANDLE_STYLE} />
+      <Handle type="target" position={Position.Left} id="left" isConnectable={false} style={HANDLE_STYLE} />
+      <span className="text-xs text-blue-500 font-mono shrink-0">{data.id_code}</span>
+      <span className="truncate text-gray-700 text-xs">{data.label}</span>
+    </div>
+  )
+}
+
+const nodeTypes = { docNode: DocNode, chapterNode: ChapterNode, articleNode: ArticleNode }
+
+function nodeDim(node) {
+  if (node.id === 'doc') return { w: ROOT_W, h: ROOT_H }
+  if (node.type === 'chapterNode') return { w: NODE_W, h: NODE_H }
+  return { w: NODE_W - 20, h: NODE_H - 8 }
+}
+
+function nodeCenter(node) {
+  const d = nodeDim(node)
+  return { x: node.position.x + d.w / 2, y: node.position.y + d.h / 2 }
+}
+
+function bestHandles(srcNode, tgtNode) {
+  const s = nodeCenter(srcNode)
+  const t = nodeCenter(tgtNode)
+  const angle = Math.atan2(t.y - s.y, t.x - s.x)
+  if (angle >= -Math.PI / 4 && angle <= Math.PI / 4) return { sourceHandle: 'right', targetHandle: 'left' }
+  if (angle >= Math.PI / 4 && angle <= (3 * Math.PI) / 4) return { sourceHandle: 'bottom', targetHandle: 'top' }
+  if (angle >= (-3 * Math.PI) / 4 && angle <= -Math.PI / 4) return { sourceHandle: 'top', targetHandle: 'bottom' }
+  return { sourceHandle: 'left', targetHandle: 'right' }
+}
+
+function radialLayout(documento, collapsed, draggedPositions) {
+  if (!documento?.capitulos) return { nodes: [], edges: [] }
+
+  const centerX = 0
+  const centerY = 0
+  const caps = documento.capitulos
+  const total = caps.length
+  const angleStep = (2 * Math.PI) / total
+
+  const allNodes = []
+  const allEdges = []
+
+  const dp = (id) => draggedPositions[id] || null
+
+  allNodes.push({
+    id: 'doc',
+    type: 'docNode',
+    position: dp('doc') || { x: centerX - ROOT_W / 2, y: centerY - ROOT_H / 2 },
+    data: { label: documento.titulo },
+  })
+
+  caps.forEach((cap, ci) => {
+    const capId = `cap-${cap.id}`
+    const midAngle = -Math.PI / 2 + ci * angleStep + angleStep / 2
+
+    const capX = centerX + R1 * Math.cos(midAngle)
+    const capY = centerY + R1 * Math.sin(midAngle)
+
+    allNodes.push({
+      id: capId,
+      type: 'chapterNode',
+      position: dp(capId) || { x: capX - NODE_W / 2, y: capY - NODE_H / 2 },
+      data: {
+        label: cap.titulo,
+        id_code: cap.id_code || cap.id,
+        collapsed: collapsed.has(capId),
+        count: (cap.artigos || []).length,
+        onToggle: undefined,
+      },
+    })
+
+    if (!collapsed.has(capId)) {
+      const arts = cap.artigos || []
+      const artSpan = angleStep * 0.8
+      const artStart = midAngle - artSpan / 2
+
+      arts.forEach((art, aj) => {
+        const artAngle = arts.length > 1
+          ? artStart + (artSpan * aj) / (arts.length - 1)
+          : midAngle
+
+        const artX = centerX + R2 * Math.cos(artAngle)
+        const artY = centerY + R2 * Math.sin(artAngle)
+        const artW = NODE_W - 20
+        const artH = NODE_H - 8
+
+        const artId = `art-${art.id}`
+        allNodes.push({
+          id: artId,
+          type: 'articleNode',
+          position: dp(artId) || { x: artX - artW / 2, y: artY - artH / 2 },
+          data: { label: art.titulo, id_code: art.id_code || art.id },
+        })
+      })
+    }
+  })
+
+  const nodeMap = {}
+  allNodes.forEach((n) => { nodeMap[n.id] = n })
+
+  caps.forEach((cap) => {
+    const capId = `cap-${cap.id}`
+    const docNode = nodeMap['doc']
+    const capNode = nodeMap[capId]
+    if (docNode && capNode) {
+      const h = bestHandles(docNode, capNode)
+      allEdges.push({
+        id: `e-doc-${capId}`,
+        source: 'doc',
+        target: capId,
+        sourceHandle: h.sourceHandle,
+        targetHandle: h.targetHandle,
+        type: 'bezier',
+        style: { stroke: '#94a3b8', strokeWidth: 2 },
+      })
+    }
+
+    if (!collapsed.has(capId)) {
+      const arts = cap.artigos || []
+      arts.forEach((art) => {
+        const artId = `art-${art.id}`
+        const artNode = nodeMap[artId]
+        if (capNode && artNode) {
+          const h = bestHandles(capNode, artNode)
+          allEdges.push({
+            id: `e-${capId}-${artId}`,
+            source: capId,
+            target: artId,
+            sourceHandle: h.sourceHandle,
+            targetHandle: h.targetHandle,
+            type: 'bezier',
+            style: { stroke: '#d1d5db', strokeWidth: 1.5 },
+          })
+        }
+      })
+    }
+  })
+
+  return { nodes: allNodes, edges: allEdges }
+}
+
+export default function MindMap({ documento, onSelectArtigo }) {
+  const [collapsed, setCollapsed] = useState(new Set())
+  const draggedPositionsRef = useRef({})
+  const reactFlowInstanceRef = useRef(null)
+
+  const handleToggle = useCallback((capId) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (next.has(capId)) next.delete(capId)
+      else next.add(capId)
+      return next
+    })
+    setTimeout(() => {
+      reactFlowInstanceRef.current?.fitView({ padding: 0.25, duration: 400 })
+    }, 50)
+  }, [])
+
+  const graph = useMemo(() => {
+    const g = radialLayout(documento, collapsed, draggedPositionsRef.current)
+    g.nodes = g.nodes.map((n) => {
+      if (n.type === 'chapterNode') {
+        return { ...n, data: { ...n.data, onToggle: () => handleToggle(n.id) } }
+      }
+      return n
+    })
+    return g
+  }, [documento, collapsed, handleToggle])
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(graph.nodes)
+  const [edges, setEdges, onEdgesChange] = useEdgesState(graph.edges)
+
+  const nodesRef = useRef(nodes)
+  nodesRef.current = nodes
+  const edgesRef = useRef(edges)
+  edgesRef.current = edges
+
+  useEffect(() => {
+    setNodes(graph.nodes)
+    setEdges(graph.edges)
+  }, [graph, setNodes, setEdges])
+
+  const onNodeDragStop = useCallback((_, node) => {
+    draggedPositionsRef.current[node.id] = { x: node.position.x, y: node.position.y }
+
+    const currentEdges = edgesRef.current
+    const currentNodes = nodesRef.current
+
+    const updatedEdges = currentEdges.map((edge) => {
+      if (edge.source !== node.id && edge.target !== node.id) return edge
+      const srcNode = currentNodes.find((n) => n.id === edge.source)
+      const tgtNode = currentNodes.find((n) => n.id === edge.target)
+      if (!srcNode || !tgtNode) return edge
+      const h = bestHandles(srcNode, tgtNode)
+      return { ...edge, sourceHandle: h.sourceHandle, targetHandle: h.targetHandle }
+    })
+
+    setEdges(updatedEdges)
+  }, [setEdges])
+
+  const onNodeClick = useCallback((_, node) => {
+    if (node.type === 'articleNode' && onSelectArtigo && documento) {
+      for (const cap of documento.capitulos || []) {
+        for (const art of cap.artigos || []) {
+          if (`art-${art.id}` === node.id) {
+            onSelectArtigo(art)
+            return
+          }
+        }
+      }
+    }
+  }, [documento, onSelectArtigo])
+
+  return (
+    <div className="h-full w-full">
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onNodeClick={onNodeClick}
+        onNodeDragStop={onNodeDragStop}
+        nodeTypes={nodeTypes}
+        onInit={(instance) => { reactFlowInstanceRef.current = instance; setTimeout(() => instance.fitView({ padding: 0.25, duration: 400 }), 100) }}
+        nodesDraggable={true}
+        nodesConnectable={false}
+        elementsSelectable={true}
+        fitView={false}
+        proOptions={{ hideAttribution: true }}
+        minZoom={0.2}
+        maxZoom={2}
+      >
+        <Controls showInteractive={false} />
+        <MiniMap
+          nodeStrokeColor="#9ca3af"
+          nodeColor={(n) =>
+            n.type === 'docNode' ? '#2563eb'
+            : n.type === 'chapterNode' ? '#f59e0b'
+            : '#e5e7eb'
+          }
+          maskColor="rgba(0,0,0,0.06)"
+          style={{ borderRadius: 8, margin: 8 }}
+          pannable
+          zoomable
+        />
+        <Background color="#f1f5f9" gap={20} size={1} />
+      </ReactFlow>
+    </div>
+  )
+}

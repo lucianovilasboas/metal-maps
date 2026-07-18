@@ -1,0 +1,36 @@
+const BASE_URL = '/api/v1';
+
+async function api(path, options = {}) {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    headers: { 'Content-Type': 'application/json', ...options.headers },
+    ...options,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ erro: 'Erro desconhecido' }));
+    throw new Error(err.erro || err.detail || `Erro ${res.status}`);
+  }
+  return res.json();
+}
+
+export function listarDocumentos() {
+  return api('/documentos/');
+}
+
+export function detalheDocumento(slug) {
+  return api(`/documentos/${slug}/`);
+}
+
+export function detalheArtigo(id) {
+  return api(`/artigos/${id}/`);
+}
+
+export function buscar(query) {
+  return api(`/buscar/?q=${encodeURIComponent(query)}`);
+}
+
+export function uploadJSON(data) {
+  return api('/documentos/upload-json/', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}

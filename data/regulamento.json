@@ -1,0 +1,160 @@
+{
+  "documentos": [
+    {
+      "slug": "regulamento-disciplinar-discente",
+      "titulo": "Regulamento Disciplinar Discente",
+      "capitulos": [
+        {
+          "id": "cap1",
+          "titulo": "Das Disposições Preliminares",
+          "artigos": [
+            {
+              "id": "art1",
+              "titulo": "Finalidade",
+              "texto": "Art. 1º O presente Regulamento tem por finalidade estabelecer normas de conduta disciplinar para os discentes regularmente matriculados no Instituto Federal de Educação, Ciência e Tecnologia de Minas Gerais - IFMG, Campus Ribeirão das Neves.",
+              "relacionados": ["art2"]
+            },
+            {
+              "id": "art2",
+              "titulo": "Âmbito de Aplicação",
+              "texto": "Art. 2º Este Regulamento aplica-se a todos os discentes do IFMG, Campus Ribeirão das Neves, no que se refere às atividades acadêmicas, administrativas e de convivência no âmbito da Instituição.",
+              "relacionados": ["art1", "art3"]
+            },
+            {
+              "id": "art3",
+              "titulo": "Fundamentação Legal",
+              "texto": "Art. 3º O presente Regulamento fundamenta-se na legislação educacional vigente, no Estatuto e no Regimento Geral do IFMG, e nas demais normas internas da Instituição.",
+              "relacionados": []
+            }
+          ]
+        },
+        {
+          "id": "cap2",
+          "titulo": "Dos Direitos e Deveres",
+          "artigos": [
+            {
+              "id": "art4",
+              "titulo": "Direitos do Discente",
+              "texto": "Art. 4º São direitos do discente: I - receber ensino de qualidade; II - ser tratado com respeito e urbanidade; III - utilizar as instalações e equipamentos da Instituição; IV - participar de órgãos colegiados; V - requerer revisão de avaliações e decisões pedagógicas.",
+              "relacionados": ["art5"]
+            },
+            {
+              "id": "art5",
+              "titulo": "Deveres do Discente",
+              "texto": "Art. 5º São deveres do discente: I - cumprir as normas institucionais; II - respeitar servidores e demais discentes; III - zelar pelo patrimônio público; IV - frequentar regularmente as atividades acadêmicas; V - manter conduta ética e compatível com o ambiente acadêmico.",
+              "relacionados": ["art4", "art6"]
+            }
+          ]
+        },
+        {
+          "id": "cap3",
+          "titulo": "Das Faltas Disciplinares",
+          "artigos": [
+            {
+              "id": "art6",
+              "titulo": "Conceito",
+              "texto": "Art. 6º Constituem faltas disciplinares as condutas incompatíveis com o ambiente acadêmico e administrativo do IFMG, tipificadas neste Regulamento.",
+              "relacionados": ["art7"]
+            },
+            {
+              "id": "art7",
+              "titulo": "Faltas Leves",
+              "texto": "Art. 7º São consideradas faltas leves: I - utilizar aparelhos eletrônicos em sala de aula sem autorização do docente; II - portar-se de forma inadequada durante as atividades acadêmicas; III - desrespeitar a pontualidade e assiduidade; IV - utilizar dependências da Instituição para fins não autorizados.",
+              "relacionados": ["art8", "art11"]
+            },
+            {
+              "id": "art8",
+              "titulo": "Faltas Médias",
+              "texto": "Art. 8º São consideradas faltas médias: I - promover algazarra ou perturbação no ambiente acadêmico; II - desrespeitar servidor ou discente; III - fraudar frequência ou documentos acadêmicos; IV - ingressar ou permanecer em setores restritos sem autorização.",
+              "relacionados": ["art9", "art11"]
+            },
+            {
+              "id": "art9",
+              "titulo": "Faltas Graves",
+              "texto": "Art. 9º São consideradas faltas graves: I - praticar bullying ou cyberbullying; II - agredir física ou verbalmente membro da comunidade acadêmica; III - danificar patrimônio público; IV - praticar cola ou plágio em atividades acadêmicas; V - portar arma ou objeto perigoso; VI - consumir ou portar substâncias ilícitas no campus.",
+              "relacionados": ["art10", "art11", "art12"]
+            },
+            {
+              "id": "art10",
+              "titulo": "Faltas Gravíssimas",
+              "texto": "Art. 10. São consideradas faltas gravíssimas: I - praticar ato ilícito tipificado como crime; II - ameaçar ou praticar violência contra servidor ou discente; III - falsificar documentos institucionais; IV - fraudar processos seletivos ou avaliações oficiais; V - promover incitação à violência ou ao ódio no ambiente acadêmico.",
+              "relacionados": ["art9", "art12"]
+            }
+          ]
+        },
+        {
+          "id": "cap4",
+          "titulo": "Das Penalidades",
+          "artigos": [
+            {
+              "id": "art11",
+              "titulo": "Tipos de Penalidades",
+              "texto": "Art. 11. As penalidades aplicáveis são: I - advertência verbal ou escrita, para faltas leves; II - suspensão de até 10 dias, para faltas médias; III - suspensão de 11 a 30 dias, para faltas graves; IV - desligamento da Instituição, para faltas gravíssimas.",
+              "relacionados": ["art12", "art13"]
+            },
+            {
+              "id": "art12",
+              "titulo": "Critérios para Aplicação",
+              "texto": "Art. 12. Na aplicação das penalidades serão considerados: I - a gravidade da falta; II - os antecedentes do discente; III - as circunstâncias atenuantes e agravantes; IV - o dano causado à comunidade acadêmica.",
+              "relacionados": ["art11", "art13"]
+            },
+            {
+              "id": "art13",
+              "titulo": "Circunstâncias Atenuantes",
+              "texto": "Art. 13. São circunstâncias atenuantes: I - primariedade do discente; II - confissão espontânea; III - reparação do dano; IV - bom histórico disciplinar.",
+              "relacionados": ["art12"]
+            }
+          ]
+        },
+        {
+          "id": "cap5",
+          "titulo": "Do Processo Disciplinar",
+          "artigos": [
+            {
+              "id": "art14",
+              "titulo": "Instauração",
+              "texto": "Art. 14. O processo disciplinar será instaurado mediante comunicação escrita da ocorrência à Direção de Ensino ou à Direção Geral, conforme o caso.",
+              "relacionados": ["art15"]
+            },
+            {
+              "id": "art15",
+              "titulo": "Comissão Disciplinar",
+              "texto": "Art. 15. A Comissão Disciplinar será composta por servidores designados pela Direção Geral, assegurada a imparcialidade na condução dos trabalhos.",
+              "relacionados": ["art14", "art16"]
+            },
+            {
+              "id": "art16",
+              "titulo": "Direito de Defesa",
+              "texto": "Art. 16. É assegurado ao discente o contraditório e a ampla defesa, com a faculdade de acompanhar o processo e apresentar testemunhas e provas.",
+              "relacionados": ["art15", "art17"]
+            },
+            {
+              "id": "art17",
+              "titulo": "Recurso",
+              "texto": "Art. 17. Da decisão disciplinar caberá recurso à instância superior no prazo de 5 dias úteis, contados da ciência da decisão.",
+              "relacionados": ["art16"]
+            }
+          ]
+        },
+        {
+          "id": "cap6",
+          "titulo": "Das Disposições Finais",
+          "artigos": [
+            {
+              "id": "art18",
+              "titulo": "Casos Omissos",
+              "texto": "Art. 18. Os casos omissos serão resolvidos pela Direção Geral do campus, ouvidos os órgãos competentes.",
+              "relacionados": []
+            },
+            {
+              "id": "art19",
+              "titulo": "Vigência",
+              "texto": "Art. 19. Este Regulamento entra em vigor na data de sua publicação.",
+              "relacionados": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
