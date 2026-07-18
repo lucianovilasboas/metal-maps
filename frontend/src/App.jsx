@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { toPng } from 'html-to-image'
+import { toCanvas } from 'html-to-image'
 import Header from './components/Header'
 import Sidebar from './components/Sidebar'
 import MindMap from './components/MindMap'
@@ -88,13 +88,24 @@ export default function App() {
   }, [documento])
 
   const handleExportPNG = useCallback(async () => {
-    if (!mindMapRef.current) return
+    const el = mindMapRef.current
+    if (!el) return
     try {
-      const dataUrl = await toPng(mindMapRef.current, {
+      const canvas = await toCanvas(el, {
         backgroundColor: '#f8fafc',
         pixelRatio: 2,
+        cacheBust: true,
+        useCORS: true,
       })
-      downloadFile(dataUrl, `${documento?.slug || 'mapa'}.png`, 'image/png')
+      canvas.toBlob((blob) => {
+        if (!blob) return
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${documento?.slug || 'mapa'}.png`
+        a.click()
+        URL.revokeObjectURL(url)
+      })
     } catch {
       // silent
     }
