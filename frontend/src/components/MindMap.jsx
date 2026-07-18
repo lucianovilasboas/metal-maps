@@ -67,6 +67,8 @@ function ChapterNode({ data }) {
 function ArticleNode({ data }) {
   return (
     <div
+      onMouseEnter={() => data.onHoverEnter?.()}
+      onMouseLeave={() => data.onHoverLeave?.()}
       className={`px-4 py-2 rounded-full border border-gray-200 bg-white text-sm cursor-grab active:cursor-grabbing transition-all duration-300 hover:border-blue-400 hover:shadow-lg hover:bg-blue-50 select-none flex items-center gap-2 ${data.blurred ? 'opacity-20' : ''}`}
       style={{ width: NODE_W - 20, height: NODE_H - 8, minHeight: 40 }}
     >
@@ -277,6 +279,16 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
     }, 50)
   }, [])
 
+  const handleRelHover = useCallback((id) => {
+    relHoverRef.current = id
+    setRelHoverVersion((v) => v + 1)
+  }, [])
+
+  const handleRelLeave = useCallback(() => {
+    relHoverRef.current = null
+    setRelHoverVersion((v) => v + 1)
+  }, [])
+
   const graph = useMemo(() => {
     const g = radialLayout(documento, collapsed, draggedPositionsRef.current)
 
@@ -324,6 +336,9 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
       const blurred = focusSet ? !focusSet.has(n.id) : false
       if (n.type === 'chapterNode') {
         return { ...n, data: { ...n.data, onToggle: () => handleToggle(n.id), blurred } }
+      }
+      if (n.type === 'articleNode' && mostrarRel) {
+        return { ...n, data: { ...n.data, blurred, onHoverEnter: () => handleRelHover(n.id), onHoverLeave: handleRelLeave } }
       }
       return { ...n, data: { ...n.data, blurred } }
     })
@@ -391,20 +406,6 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
     }
   }, [])
 
-  const onNodeMouseEnter = useCallback((_, node) => {
-    if (node.type === 'articleNode' && mostrarRel) {
-      relHoverRef.current = node.id
-      setRelHoverVersion((v) => v + 1)
-    }
-  }, [mostrarRel])
-
-  const onNodeMouseLeave = useCallback(() => {
-    if (relHoverRef.current) {
-      relHoverRef.current = null
-      setRelHoverVersion((v) => v + 1)
-    }
-  }, [])
-
   const onPaneClick = useCallback(() => {
     if (focoId) setFocoId(null)
   }, [focoId])
@@ -443,8 +444,6 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
         onEdgesChange={onEdgesChange}
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
-        onNodeMouseEnter={onNodeMouseEnter}
-        onNodeMouseLeave={onNodeMouseLeave}
         onNodeDragStop={onNodeDragStop}
         onPaneClick={onPaneClick}
         nodeTypes={nodeTypes}
