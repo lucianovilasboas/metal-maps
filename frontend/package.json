@@ -15,6 +15,7 @@
     "@xyflow/react": "^12.11.2",
     "dagre": "^0.8.5",
     "framer-motion": "^12.42.2",
+    "html-to-image": "^1.11.13",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-dropzone": "^19.0.2",

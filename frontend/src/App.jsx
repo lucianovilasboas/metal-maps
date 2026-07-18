@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { toPng } from 'html-to-image'
 import Header from './components/Header'
 import Sidebar from './components/Sidebar'
 import MindMap from './components/MindMap'
@@ -7,6 +8,16 @@ import ArticleModal from './components/ArticleModal'
 import UploadModal from './components/UploadModal'
 import TextUploadModal from './components/TextUploadModal'
 import { listarDocumentos, detalheDocumento, buscar, salvarPosicoes } from './api/client'
+
+function downloadFile(content, filename, type = 'application/json') {
+  const blob = new Blob([content], { type })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 export default function App() {
   const [documento, setDocumento] = useState(null)
@@ -16,6 +27,7 @@ export default function App() {
   const [searchResults, setSearchResults] = useState(null)
   const [searchLoading, setSearchLoading] = useState(false)
   const [activeSlug, setActiveSlug] = useState(null)
+  const mindMapRef = useRef(null)
 
   const { data: docsList } = useQuery({
     queryKey: ['documentos'],
@@ -69,6 +81,25 @@ export default function App() {
     }
   }, [documento?.slug])
 
+  const handleExportJSON = useCallback(() => {
+    if (!documento) return
+    const json = JSON.stringify(documento, null, 2)
+    downloadFile(json, `${documento.slug}.json`, 'application/json')
+  }, [documento])
+
+  const handleExportPNG = useCallback(async () => {
+    if (!mindMapRef.current) return
+    try {
+      const dataUrl = await toPng(mindMapRef.current, {
+        backgroundColor: '#f8fafc',
+        pixelRatio: 2,
+      })
+      downloadFile(dataUrl, `${documento?.slug || 'mapa'}.png`, 'image/png')
+    } catch {
+      // silent
+    }
+  }, [documento])
+
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       <Header
@@ -78,6 +109,8 @@ export default function App() {
         onSearch={handleSearch}
         onUploadJSON={() => setShowUploadJSON(true)}
         onUploadText={() => setShowUploadText(true)}
+        onExportJSON={handleExportJSON}
+        onExportPNG={handleExportPNG}
       />
 
       <div className="flex-1 flex overflow-hidden">
@@ -94,6 +127,7 @@ export default function App() {
             documento={documento}
             onSelectArtigo={handleSelectArtigo}
             onSalvarPosicoes={handleSalvarPosicoes}
+            containerRef={mindMapRef}
           />
         </div>
       </div>

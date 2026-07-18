@@ -218,7 +218,7 @@ function radialLayout(documento, collapsed, draggedPositions) {
   return { nodes: allNodes, edges: allEdges }
 }
 
-export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes }) {
+export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, containerRef }) {
   const [collapsed, setCollapsed] = useState(new Set())
   const [focoId, setFocoId] = useState(null)
   const [mostrarRel, setMostrarRel] = useState(false)
@@ -426,7 +426,7 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
   }, [focoId, documento, nodes])
 
   return (
-    <div className="h-full w-full">
+    <div ref={containerRef} className="h-full w-full">
       <ReactFlow
         nodes={nodes}
         edges={edges}

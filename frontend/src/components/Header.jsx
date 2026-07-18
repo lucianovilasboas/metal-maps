@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react'
 
-export default function Header({ docsList, activeSlug, onSelectDocumento, onSearch, onUploadJSON, onUploadText }) {
+export default function Header({ docsList, activeSlug, onSelectDocumento, onSearch, onUploadJSON, onUploadText, onExportJSON, onExportPNG }) {
   const [query, setQuery] = useState('')
   const [showUploadMenu, setShowUploadMenu] = useState(false)
   const [showDocMenu, setShowDocMenu] = useState(false)
+  const [showExportMenu, setShowExportMenu] = useState(false)
 
   const handleSearch = useCallback((e) => {
     e.preventDefault()
@@ -85,6 +86,35 @@ export default function Header({ docsList, activeSlug, onSelectDocumento, onSear
                 className="w-full text-left px-4 py-3 text-sm hover:bg-gray-50"
               >
                 ✏️ Colar texto (IA)
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="relative shrink-0">
+        <button
+          onClick={() => setShowExportMenu(!showExportMenu)}
+          className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
+        >
+          ↓ Exportar
+        </button>
+
+        {showExportMenu && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)} />
+            <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-20 w-48">
+              <button
+                onClick={() => { onExportJSON(); setShowExportMenu(false) }}
+                className="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 border-b border-gray-100"
+              >
+                📥 Baixar JSON
+              </button>
+              <button
+                onClick={() => { onExportPNG(); setShowExportMenu(false) }}
+                className="w-full text-left px-4 py-3 text-sm hover:bg-gray-50"
+              >
+                🖼️ Baixar PNG
               </button>
             </div>
           </>
