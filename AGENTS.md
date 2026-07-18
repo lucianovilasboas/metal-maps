@@ -167,6 +167,7 @@ npm run build        # gera dist/ para produção via Django
 
 - [x] Persistir posições dos nós no localStorage (fase 1)
 - [x] Suporte a múltiplos documentos simultâneos (fase 3)
+- [x] Modo foco — clique duplo no capítulo centraliza e destaca (fase 4)
 - [ ] Persistir posições dos nós no backend
 - [ ] Suporte a múltiplos documentos simultâneos
 - [ ] Temas dark/light

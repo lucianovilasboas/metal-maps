@@ -22,7 +22,7 @@ const HANDLE_STYLE = { opacity: 0, pointerEvents: 'none' }
 
 function DocNode({ data }) {
   return (
-    <div className="px-6 py-3 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-full shadow-xl border-2 border-blue-400 flex items-center justify-center gap-2 select-none"
+    <div className={`px-6 py-3 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-full shadow-xl border-2 border-blue-400 flex items-center justify-center gap-2 select-none transition-opacity duration-300 ${data.blurred ? 'opacity-20' : ''}`}
       style={{ width: ROOT_W, height: ROOT_H }}
     >
       <Handle type="source" position={Position.Top} id="top" isConnectable={false} style={HANDLE_STYLE} />
@@ -40,10 +40,12 @@ function ChapterNode({ data }) {
   return (
     <div
       onClick={data.onToggle}
-      className={`px-5 py-2 rounded-full border-2 font-medium transition-all cursor-grab active:cursor-grabbing select-none flex items-center justify-center gap-2 ${
-        collapsed
-          ? 'bg-white border-amber-300 text-amber-700 shadow-sm hover:shadow-md hover:border-amber-400'
-          : 'bg-amber-100 border-amber-400 text-amber-900 shadow-md'
+      className={`px-5 py-2 rounded-full border-2 font-medium transition-all duration-300 cursor-grab active:cursor-grabbing select-none flex items-center justify-center gap-2 ${
+        data.blurred
+          ? 'opacity-20 border-gray-200 text-gray-400'
+          : collapsed
+            ? 'bg-white border-amber-300 text-amber-700 shadow-sm hover:shadow-md hover:border-amber-400'
+            : 'bg-amber-100 border-amber-400 text-amber-900 shadow-md'
       }`}
       style={{ width: NODE_W, height: NODE_H }}
     >
@@ -65,7 +67,7 @@ function ChapterNode({ data }) {
 function ArticleNode({ data }) {
   return (
     <div
-      className="px-4 py-2 rounded-full border border-gray-200 bg-white text-sm cursor-grab active:cursor-grabbing transition-all hover:border-blue-400 hover:shadow-lg hover:bg-blue-50 select-none flex items-center gap-2"
+      className={`px-4 py-2 rounded-full border border-gray-200 bg-white text-sm cursor-grab active:cursor-grabbing transition-all duration-300 hover:border-blue-400 hover:shadow-lg hover:bg-blue-50 select-none flex items-center gap-2 ${data.blurred ? 'opacity-20' : ''}`}
       style={{ width: NODE_W - 20, height: NODE_H - 8, minHeight: 40 }}
     >
       <Handle type="target" position={Position.Top} id="top" isConnectable={false} style={HANDLE_STYLE} />
@@ -214,6 +216,7 @@ function radialLayout(documento, collapsed, draggedPositions) {
 
 export default function MindMap({ documento, onSelectArtigo }) {
   const [collapsed, setCollapsed] = useState(new Set())
+  const [focoId, setFocoId] = useState(null)
   const [loadVersion, setLoadVersion] = useState(0)
   const draggedPositionsRef = useRef({})
   const reactFlowInstanceRef = useRef(null)
@@ -263,14 +266,27 @@ export default function MindMap({ documento, onSelectArtigo }) {
 
   const graph = useMemo(() => {
     const g = radialLayout(documento, collapsed, draggedPositionsRef.current)
-    g.nodes = g.nodes.map((n) => {
-      if (n.type === 'chapterNode') {
-        return { ...n, data: { ...n.data, onToggle: () => handleToggle(n.id) } }
+
+    let focusSet = null
+    if (focoId) {
+      focusSet = new Set([focoId])
+      for (const cap of (documento?.capitulos || [])) {
+        if (focoId === `cap-${cap.id}`) {
+          cap.artigos?.forEach((a) => focusSet.add(`art-${a.id}`))
+          break
+        }
       }
-      return n
+    }
+
+    g.nodes = g.nodes.map((n) => {
+      const blurred = focusSet ? !focusSet.has(n.id) : false
+      if (n.type === 'chapterNode') {
+        return { ...n, data: { ...n.data, onToggle: () => handleToggle(n.id), blurred } }
+      }
+      return { ...n, data: { ...n.data, blurred } }
     })
     return g
-  }, [documento, collapsed, handleToggle, loadVersion])
+  }, [documento, collapsed, handleToggle, loadVersion, focoId])
 
   const [nodes, setNodes, onNodesChange] = useNodesState(graph.nodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(graph.edges)
@@ -325,6 +341,41 @@ export default function MindMap({ documento, onSelectArtigo }) {
     }
   }, [documento, onSelectArtigo])
 
+  const onNodeDoubleClick = useCallback((_, node) => {
+    if (node.type === 'chapterNode') {
+      setFocoId((prev) => (prev === node.id ? null : node.id))
+    }
+  }, [])
+
+  const onPaneClick = useCallback(() => {
+    if (focoId) setFocoId(null)
+  }, [focoId])
+
+  useEffect(() => {
+    if (!focoId) {
+      setTimeout(() => reactFlowInstanceRef.current?.fitView({ padding: 0.25, duration: 300 }), 50)
+      return
+    }
+    const handler = (e) => { if (e.key === 'Escape') setFocoId(null) }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [focoId])
+
+  useEffect(() => {
+    if (!focoId || !reactFlowInstanceRef.current || !documento) return
+    const focusIds = new Set([focoId])
+    for (const cap of documento.capitulos) {
+      if (focoId === `cap-${cap.id}`) {
+        cap.artigos?.forEach((a) => focusIds.add(`art-${a.id}`))
+        break
+      }
+    }
+    const fitNodes = nodes.filter((n) => focusIds.has(n.id))
+    if (fitNodes.length > 0) {
+      setTimeout(() => reactFlowInstanceRef.current?.fitView({ nodes: fitNodes, padding: 0.3, duration: 400 }), 50)
+    }
+  }, [focoId, documento, nodes])
+
   return (
     <div className="h-full w-full">
       <ReactFlow
@@ -333,7 +384,9 @@ export default function MindMap({ documento, onSelectArtigo }) {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onNodeClick={onNodeClick}
+        onNodeDoubleClick={onNodeDoubleClick}
         onNodeDragStop={onNodeDragStop}
+        onPaneClick={onPaneClick}
         nodeTypes={nodeTypes}
         onInit={(instance) => { reactFlowInstanceRef.current = instance; setTimeout(() => instance.fitView({ padding: 0.25, duration: 400 }), 100) }}
         nodesDraggable={true}
