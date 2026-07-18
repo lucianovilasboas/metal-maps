@@ -217,6 +217,16 @@ export default function MindMap({ documento, onSelectArtigo }) {
   const draggedPositionsRef = useRef({})
   const reactFlowInstanceRef = useRef(null)
 
+  useEffect(() => {
+    if (!documento?.slug) return
+    const saved = localStorage.getItem(`mm-pos-${documento.slug}`)
+    if (saved) {
+      try { draggedPositionsRef.current = JSON.parse(saved) } catch { draggedPositionsRef.current = {} }
+    } else {
+      draggedPositionsRef.current = {}
+    }
+  }, [documento?.slug])
+
   const handleToggle = useCallback((capId) => {
     setCollapsed((prev) => {
       const next = new Set(prev)
@@ -256,6 +266,10 @@ export default function MindMap({ documento, onSelectArtigo }) {
   const onNodeDragStop = useCallback((_, node) => {
     draggedPositionsRef.current[node.id] = { x: node.position.x, y: node.position.y }
 
+    if (documento?.slug) {
+      localStorage.setItem(`mm-pos-${documento.slug}`, JSON.stringify(draggedPositionsRef.current))
+    }
+
     const currentEdges = edgesRef.current
     const currentNodes = nodesRef.current
 
@@ -269,7 +283,7 @@ export default function MindMap({ documento, onSelectArtigo }) {
     })
 
     setEdges(updatedEdges)
-  }, [setEdges])
+  }, [setEdges, documento?.slug])
 
   const onNodeClick = useCallback((_, node) => {
     if (node.type === 'articleNode' && onSelectArtigo && documento) {

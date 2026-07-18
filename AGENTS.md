@@ -165,7 +165,8 @@ npm run build        # gera dist/ para produção via Django
 
 ## Próximos passos sugeridos
 
-- [ ] Persistir posições dos nós no backend (banco ou localStorage)
+- [x] Persistir posições dos nós no localStorage (fase 1)
+- [ ] Persistir posições dos nós no backend
 - [ ] Suporte a múltiplos documentos simultâneos
 - [ ] Temas dark/light
 - [ ] Exportar mapa como imagem
