@@ -170,6 +170,7 @@ npm run build        # gera dist/ para produção via Django
 - [x] Suporte a múltiplos documentos simultâneos (fase 3)
 - [x] Modo foco — clique duplo no capítulo centraliza e destaca (fase 4)
 - [x] Artigos relacionados — toggle R + clique no artigo mostra arestas tracejadas (fase 5)
+- [ ] Exportar mapa como imagem (fase 6)
 - [ ] Persistir posições dos nós no backend
 - [ ] Suporte a múltiplos documentos simultâneos
 - [ ] Temas dark/light
