@@ -214,7 +214,7 @@ function radialLayout(documento, collapsed, draggedPositions) {
   return { nodes: allNodes, edges: allEdges }
 }
 
-export default function MindMap({ documento, onSelectArtigo }) {
+export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes }) {
   const [collapsed, setCollapsed] = useState(new Set())
   const [focoId, setFocoId] = useState(null)
   const [loadVersion, setLoadVersion] = useState(0)
@@ -223,20 +223,30 @@ export default function MindMap({ documento, onSelectArtigo }) {
 
   useEffect(() => {
     if (!documento?.slug) return
+
+    let hasBackend = false
+    if (documento.posicoes && typeof documento.posicoes === 'object' && Object.keys(documento.posicoes).length > 0) {
+      draggedPositionsRef.current = documento.posicoes
+      hasBackend = true
+    }
+
     const saved = localStorage.getItem(`mm-state-${documento.slug}`)
     if (saved) {
       try {
         const data = JSON.parse(saved)
-        draggedPositionsRef.current = data.positions || {}
+        if (!hasBackend && data.positions) {
+          draggedPositionsRef.current = data.positions
+        }
         setCollapsed(new Set(data.collapsed || []))
       } catch {
-        draggedPositionsRef.current = {}
+        if (!hasBackend) draggedPositionsRef.current = {}
         setCollapsed(new Set())
       }
-    } else {
+    } else if (!hasBackend) {
       draggedPositionsRef.current = {}
       setCollapsed(new Set())
     }
+
     setLoadVersion((v) => v + 1)
   }, [documento?.slug])
 
@@ -311,6 +321,8 @@ export default function MindMap({ documento, onSelectArtigo }) {
       state.positions = draggedPositionsRef.current
       state.collapsed = [...collapsed]
       localStorage.setItem(`mm-state-${documento.slug}`, JSON.stringify(state))
+
+      if (onSalvarPosicoes) onSalvarPosicoes(draggedPositionsRef.current)
     }
 
     const currentEdges = edgesRef.current
@@ -326,7 +338,7 @@ export default function MindMap({ documento, onSelectArtigo }) {
     })
 
     setEdges(updatedEdges)
-  }, [setEdges, documento?.slug, collapsed])
+  }, [setEdges, documento?.slug, collapsed, onSalvarPosicoes])
 
   const onNodeClick = useCallback((_, node) => {
     if (node.type === 'articleNode' && onSelectArtigo && documento) {

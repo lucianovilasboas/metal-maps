@@ -34,3 +34,10 @@ export function uploadJSON(data) {
     body: JSON.stringify(data),
   });
 }
+
+export function salvarPosicoes(slug, posicoes) {
+  return api(`/documentos/${slug}/posicoes/`, {
+    method: 'PATCH',
+    body: JSON.stringify({ posicoes }),
+  });
+}

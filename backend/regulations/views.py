@@ -107,3 +107,14 @@ def upload_json(request):
                     pass
 
     return Response(DocumentoDetailSerializer(doc).data, status=201 if created else 200)
+
+
+@api_view(['PATCH'])
+def atualizar_posicoes(request, slug):
+    try:
+        doc = Documento.objects.get(slug=slug)
+    except Documento.DoesNotExist:
+        return Response({'erro': 'Documento não encontrado'}, status=404)
+    doc.posicoes = request.data.get('posicoes', {})
+    doc.save()
+    return Response({'status': 'ok'})

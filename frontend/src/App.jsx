@@ -6,7 +6,7 @@ import MindMap from './components/MindMap'
 import ArticleModal from './components/ArticleModal'
 import UploadModal from './components/UploadModal'
 import TextUploadModal from './components/TextUploadModal'
-import { listarDocumentos, detalheDocumento, buscar } from './api/client'
+import { listarDocumentos, detalheDocumento, buscar, salvarPosicoes } from './api/client'
 
 export default function App() {
   const [documento, setDocumento] = useState(null)
@@ -63,6 +63,12 @@ export default function App() {
     }
   }, [])
 
+  const handleSalvarPosicoes = useCallback((posicoes) => {
+    if (documento?.slug) {
+      salvarPosicoes(documento.slug, posicoes).catch(() => {})
+    }
+  }, [documento?.slug])
+
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       <Header
@@ -87,6 +93,7 @@ export default function App() {
           <MindMap
             documento={documento}
             onSelectArtigo={handleSelectArtigo}
+            onSalvarPosicoes={handleSalvarPosicoes}
           />
         </div>
       </div>

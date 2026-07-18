@@ -5,6 +5,7 @@ class Documento(models.Model):
     titulo = models.CharField(max_length=500)
     slug = models.SlugField(unique=True, max_length=200)
     criado_em = models.DateTimeField(auto_now_add=True)
+    posicoes = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ['criado_em']

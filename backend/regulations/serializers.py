@@ -32,4 +32,4 @@ class DocumentoDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Documento
-        fields = ['id', 'titulo', 'slug', 'criado_em', 'capitulos']
+        fields = ['id', 'titulo', 'slug', 'criado_em', 'capitulos', 'posicoes']
