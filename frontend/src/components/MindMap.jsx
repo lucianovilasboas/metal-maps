@@ -67,8 +67,6 @@ function ChapterNode({ data }) {
 function ArticleNode({ data }) {
   return (
     <div
-      onMouseEnter={() => data.onHoverEnter?.()}
-      onMouseLeave={() => data.onHoverLeave?.()}
       className={`px-4 py-2 rounded-full border border-gray-200 bg-white text-sm cursor-grab active:cursor-grabbing transition-all duration-300 hover:border-blue-400 hover:shadow-lg hover:bg-blue-50 select-none flex items-center gap-2 ${data.blurred ? 'opacity-20' : ''}`}
       style={{ width: NODE_W - 20, height: NODE_H - 8, minHeight: 40 }}
     >
@@ -224,9 +222,8 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
   const [collapsed, setCollapsed] = useState(new Set())
   const [focoId, setFocoId] = useState(null)
   const [mostrarRel, setMostrarRel] = useState(false)
-  const [relHoverVersion, setRelHoverVersion] = useState(0)
+  const [relAtivo, setRelAtivo] = useState(null)
   const [loadVersion, setLoadVersion] = useState(0)
-  const relHoverRef = useRef(null)
   const draggedPositionsRef = useRef({})
   const reactFlowInstanceRef = useRef(null)
 
@@ -283,16 +280,6 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
     }, 50)
   }, [])
 
-  const handleRelHover = useCallback((id) => {
-    relHoverRef.current = id
-    setRelHoverVersion((v) => v + 1)
-  }, [])
-
-  const handleRelLeave = useCallback(() => {
-    relHoverRef.current = null
-    setRelHoverVersion((v) => v + 1)
-  }, [])
-
   const graph = useMemo(() => {
     const g = radialLayout(documento, collapsed, draggedPositionsRef.current)
 
@@ -307,21 +294,20 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
       }
     }
 
-    if (mostrarRel && documento) {
+    if (mostrarRel && relAtivo && documento) {
       const nodeMap = {}
       g.nodes.forEach((n) => { nodeMap[n.id] = n })
       for (const cap of documento.capitulos) {
         for (const art of cap.artigos) {
-          const artId = `art-${art.id}`
-          if (!nodeMap[artId]) continue
+          if (`art-${art.id}` !== relAtivo) continue
           const rels = (art.relacionados || []).slice(0, 5)
           rels.forEach((rel) => {
             const relId = `art-${rel.id}`
-            if (relId !== artId && nodeMap[relId]) {
-              const h = bestHandles(nodeMap[artId], nodeMap[relId])
+            if (relId !== relAtivo && nodeMap[relId]) {
+              const h = bestHandles(nodeMap[relAtivo], nodeMap[relId])
               g.edges.push({
-                id: `e-rel-${artId}-${relId}`,
-                source: artId,
+                id: `e-rel-${relAtivo}-${relId}`,
+                source: relAtivo,
                 target: relId,
                 sourceHandle: h.sourceHandle,
                 targetHandle: h.targetHandle,
@@ -330,6 +316,7 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
               })
             }
           })
+          break
         }
       }
     }
@@ -339,13 +326,10 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
       if (n.type === 'chapterNode') {
         return { ...n, data: { ...n.data, onToggle: () => handleToggle(n.id), blurred } }
       }
-      if (n.type === 'articleNode' && mostrarRel) {
-        return { ...n, data: { ...n.data, blurred, onHoverEnter: () => handleRelHover(n.id), onHoverLeave: handleRelLeave } }
-      }
       return { ...n, data: { ...n.data, blurred } }
     })
     return g
-  }, [documento, collapsed, handleToggle, loadVersion, focoId, mostrarRel, relHoverVersion])
+  }, [documento, collapsed, handleToggle, loadVersion, focoId, mostrarRel, relAtivo])
 
   const [nodes, setNodes, onNodesChange] = useNodesState(graph.nodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(graph.edges)
@@ -391,6 +375,9 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
 
   const onNodeClick = useCallback((_, node) => {
     if (node.type === 'articleNode' && onSelectArtigo && documento) {
+      if (mostrarRel) {
+        setRelAtivo((prev) => (prev === node.id ? null : node.id))
+      }
       for (const cap of documento.capitulos || []) {
         for (const art of cap.artigos || []) {
           if (`art-${art.id}` === node.id) {
@@ -400,7 +387,7 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
         }
       }
     }
-  }, [documento, onSelectArtigo])
+  }, [documento, onSelectArtigo, mostrarRel])
 
   const onNodeDoubleClick = useCallback((_, node) => {
     if (node.type === 'chapterNode') {
@@ -410,7 +397,8 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes })
 
   const onPaneClick = useCallback(() => {
     if (focoId) setFocoId(null)
-  }, [focoId])
+    if (relAtivo) setRelAtivo(null)
+  }, [focoId, relAtivo])
 
   useEffect(() => {
     if (!focoId) {
