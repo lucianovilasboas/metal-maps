@@ -55,6 +55,7 @@ export default function App() {
   const [searchVersion, setSearchVersion] = useState(0)
   const [layoutType, setLayoutType] = useState('radial')
   const [expandirTodos, setExpandirTodos] = useState(false)
+  const [collapsedBlocos, setCollapsedBlocos] = useState(new Set())
   const mindMapRef = useRef(null)
   const queryClient = useQueryClient()
 
@@ -83,6 +84,50 @@ export default function App() {
   useEffect(() => {
     if (activeSlug) localStorage.setItem('mm-active-slug', activeSlug)
   }, [activeSlug])
+
+  useEffect(() => {
+    if (!documento?.slug) return
+    const saved = localStorage.getItem(`mm-state-${documento.slug}`)
+    if (saved) {
+      try {
+        const data = JSON.parse(saved)
+        setCollapsedBlocos(new Set(data.collapsed || []))
+      } catch {
+        const allIds = new Set()
+        ;(function p(b) { for (const x of b) { allIds.add(`bloco-${x.id}`); if (x.filhos?.length) p(x.filhos) } })(documento.blocos || [])
+        setCollapsedBlocos(allIds)
+      }
+    } else {
+      const allIds = new Set()
+      ;(function p(b) { for (const x of b) { allIds.add(`bloco-${x.id}`); if (x.filhos?.length) p(x.filhos) } })(documento.blocos || [])
+      setCollapsedBlocos(allIds)
+    }
+  }, [documento?.slug])
+
+  useEffect(() => {
+    if (!documento?.slug) return
+    const existing = localStorage.getItem(`mm-state-${documento.slug}`)
+    let state = {}
+    try { state = existing ? JSON.parse(existing) : {} } catch { state = {} }
+    state.collapsed = [...collapsedBlocos]
+    localStorage.setItem(`mm-state-${documento.slug}`, JSON.stringify(state))
+  }, [collapsedBlocos, documento?.slug])
+
+  useEffect(() => {
+    if (!documento?.blocos) return
+    const allIds = new Set()
+    ;(function p(b) { for (const x of b) { allIds.add(`bloco-${x.id}`); if (x.filhos?.length) p(x.filhos) } })(documento.blocos)
+    setCollapsedBlocos(expandirTodos ? new Set() : allIds)
+  }, [expandirTodos, documento?.slug])
+
+  const handleToggleBloco = useCallback((blocoId) => {
+    setCollapsedBlocos((prev) => {
+      const next = new Set(prev)
+      if (next.has(blocoId)) next.delete(blocoId)
+      else next.add(blocoId)
+      return next
+    })
+  }, [])
 
   const handleSelectArtigo = useCallback((artigo) => {
     const caminho = encontrarCaminho(documento?.blocos, artigo.id)
@@ -205,6 +250,8 @@ export default function App() {
           onNavigate={handleNavigate}
           expandirTodos={expandirTodos}
           onToggleExpandirTodos={() => setExpandirTodos(v => !v)}
+          collapsedBlocos={collapsedBlocos}
+          onToggleBloco={handleToggleBloco}
         />
 
         <div className="flex-1 min-w-0 relative">
@@ -218,6 +265,8 @@ export default function App() {
             onNavigate={handleNavigate}
             layoutType={layoutType}
             expandirTodos={expandirTodos}
+            collapsedBlocos={collapsedBlocos}
+            onToggleBloco={handleToggleBloco}
           />
         </div>
       </div>

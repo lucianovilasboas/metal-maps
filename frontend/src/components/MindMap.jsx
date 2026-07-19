@@ -535,8 +535,7 @@ const LAYOUTS = {
   force: (doc, col, dp) => forceLayout(doc, col, dp),
 }
 
-export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, containerRef, searchResults, activeBlocoId, layoutType, expandirTodos }) {
-  const [collapsed, setCollapsed] = useState(new Set())
+export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, containerRef, searchResults, activeBlocoId, layoutType, expandirTodos, collapsedBlocos, onToggleBloco }) {
   const [expandedArts, setExpandedArts] = useState(new Set())
   const [focoId, setFocoId] = useState(null)
   const [mostrarRel, setMostrarRel] = useState(false)
@@ -554,8 +553,6 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
       hasBackend = true
     }
 
-    const allBlocoIds = new Set((documento.blocos || []).map(b => `bloco-${b.id}`))
-
     const saved = localStorage.getItem(`mm-state-${documento.slug}`)
     if (saved) {
       try {
@@ -563,16 +560,13 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
         if (!hasBackend && data.positions) {
           draggedPositionsRef.current = data.positions
         }
-        setCollapsed(new Set(data.collapsed || allBlocoIds))
         setExpandedArts(new Set(data.expandedArts || []))
       } catch {
         if (!hasBackend) draggedPositionsRef.current = {}
-        setCollapsed(allBlocoIds)
         setExpandedArts(new Set())
       }
     } else if (!hasBackend) {
       draggedPositionsRef.current = {}
-      setCollapsed(allBlocoIds)
       setExpandedArts(new Set())
     }
 
@@ -581,16 +575,18 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
 
   function saveState() {
     if (!documento?.slug) return
-    localStorage.setItem(`mm-state-${documento.slug}`, JSON.stringify({
-      positions: draggedPositionsRef.current,
-      collapsed: [...collapsed],
-      expandedArts: [...expandedArts],
-    }))
+    const existing = localStorage.getItem(`mm-state-${documento.slug}`)
+    let state = {}
+    try { state = existing ? JSON.parse(existing) : {} } catch { state = {} }
+    state.positions = draggedPositionsRef.current
+    state.collapsed = [...collapsedBlocos]
+    state.expandedArts = [...expandedArts]
+    localStorage.setItem(`mm-state-${documento.slug}`, JSON.stringify(state))
   }
 
   useEffect(() => {
     if (loadVersion > 0) saveState()
-  }, [collapsed, documento?.slug, loadVersion, expandedArts])
+  }, [collapsedBlocos, documento?.slug, loadVersion, expandedArts])
 
   useEffect(() => {
     if (!activeBlocoId) return
@@ -614,25 +610,12 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
     setTimeout(() => reactFlowInstanceRef.current.fitView({ padding: 0.25, duration: 400 }), 100)
   }, [layoutType])
 
-  useEffect(() => {
-    if (!documento?.blocos) return
-    const allIds = new Set()
-    ;(function p(b) { for (const x of b) { allIds.add(`bloco-${x.id}`); if (x.filhos?.length) p(x.filhos) } })(documento.blocos)
-    setCollapsed(expandirTodos ? new Set() : allIds)
-    setTimeout(() => reactFlowInstanceRef.current?.fitView({ padding: 0.25, duration: 400 }), 100)
-  }, [expandirTodos, documento?.slug])
-
   const handleToggle = useCallback((blocoId) => {
-    setCollapsed((prev) => {
-      const next = new Set(prev)
-      if (next.has(blocoId)) next.delete(blocoId)
-      else next.add(blocoId)
-      return next
-    })
+    onToggleBloco(blocoId)
     setTimeout(() => {
       reactFlowInstanceRef.current?.fitView({ padding: 0.25, duration: 400 })
     }, 50)
-  }, [])
+  }, [onToggleBloco])
 
   const handleToggleArtigo = useCallback((artId) => {
     setExpandedArts((prev) => {
@@ -645,7 +628,7 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
 
   const graph = useMemo(() => {
     const layoutFn = LAYOUTS[layoutType] || LAYOUTS.radial
-    const g = layoutFn(documento, collapsed, draggedPositionsRef.current)
+    const g = layoutFn(documento, collapsedBlocos, draggedPositionsRef.current)
 
     if (expandedArts.size > 0 && documento?.blocos) {
       const dp = (id) => draggedPositionsRef.current[id] || null
@@ -788,7 +771,7 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
       return { ...n, data: { ...n.data, blurLevel, searchActive } }
     })
     return g
-  }, [documento, collapsed, handleToggle, loadVersion, focoId, mostrarRel, relAtivo, searchResults, layoutType, expandedArts])
+  }, [documento, collapsedBlocos, handleToggle, loadVersion, focoId, mostrarRel, relAtivo, searchResults, layoutType, expandedArts])
 
   const [nodes, setNodes, onNodesChange] = useNodesState(graph.nodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(graph.edges)
@@ -811,7 +794,7 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
       let state
       try { state = existing ? JSON.parse(existing) : {} } catch { state = {} }
       state.positions = draggedPositionsRef.current
-      state.collapsed = [...collapsed]
+      state.collapsed = [...collapsedBlocos]
       state.expandedArts = [...expandedArts]
       localStorage.setItem(`mm-state-${documento.slug}`, JSON.stringify(state))
 
@@ -831,7 +814,7 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
     })
 
     setEdges(updatedEdges)
-  }, [setEdges, documento?.slug, collapsed, onSalvarPosicoes])
+  }, [setEdges, documento?.slug, collapsedBlocos, onSalvarPosicoes])
 
   const onNodeClick = useCallback((event, node) => {
     if (event.button === 2) return

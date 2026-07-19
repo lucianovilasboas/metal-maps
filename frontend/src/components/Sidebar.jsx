@@ -1,40 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
+import { useRef } from 'react'
 
-function contarAncestrais(blocos, targetId, ancestrais) {
-  for (const bloco of blocos) {
-    const blocoId = `bloco-${bloco.id}`
-    if (blocoId === targetId) return true
-    if (bloco.filhos?.length) {
-      if (contarAncestrais(bloco.filhos, targetId, ancestrais)) {
-        ancestrais.add(blocoId)
-        return true
-      }
-    }
-    if (bloco.artigos?.length) {
-      for (const art of bloco.artigos) {
-        if (`art-${art.id}` === targetId) {
-          ancestrais.add(blocoId)
-          return true
-        }
-      }
-    }
-  }
-  return false
-}
-
-function BlocoNode({ bloco, onSelect, expandido, ativo, expandirTodos }) {
-  const [aberto, setAberto] = useState(expandido || expandirTodos)
+function BlocoNode({ bloco, onSelect, ativo, collapsedBlocos, onToggleBloco }) {
   const ref = useRef(null)
-
-  useEffect(() => {
-    setAberto(expandido || expandirTodos)
-  }, [expandido, expandirTodos])
-
-  useEffect(() => {
-    if (ativo && ref.current) {
-      ref.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }
-  }, [ativo])
+  const blocoId = `bloco-${bloco.id}`
+  const aberto = !collapsedBlocos.has(blocoId)
 
   const filhos = bloco.filhos || []
   const artigos = bloco.artigos || []
@@ -43,7 +12,7 @@ function BlocoNode({ bloco, onSelect, expandido, ativo, expandirTodos }) {
   return (
     <div className="mb-0.5" ref={ref}>
       <button
-        onClick={() => setAberto(!aberto)}
+        onClick={() => onToggleBloco(blocoId)}
         className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors ${
           ativo
             ? 'bg-blue-50 text-blue-700 font-medium'
@@ -62,7 +31,7 @@ function BlocoNode({ bloco, onSelect, expandido, ativo, expandirTodos }) {
       {aberto && (
         <div className="ml-3 border-l border-gray-100 pl-2">
           {filhos.map((filho) => (
-            <BlocoNode key={filho.id} bloco={filho} onSelect={onSelect} expandido={false} ativo={false} expandirTodos={expandirTodos} />
+            <BlocoNode key={filho.id} bloco={filho} onSelect={onSelect} ativo={false} collapsedBlocos={collapsedBlocos} onToggleBloco={onToggleBloco} />
           ))}
           {artigos.map((artigo) => (
             <button
@@ -80,13 +49,8 @@ function BlocoNode({ bloco, onSelect, expandido, ativo, expandirTodos }) {
   )
 }
 
-export default function Sidebar({ documento, onSelect, searchResults, searchLoading, onClearSearch, activeBlocoId, onNavigate, expandirTodos, onToggleExpandirTodos }) {
+export default function Sidebar({ documento, onSelect, searchResults, searchLoading, onClearSearch, activeBlocoId, onNavigate, expandirTodos, onToggleExpandirTodos, collapsedBlocos, onToggleBloco }) {
   const sidebarRef = useRef(null)
-
-  const ancestrais = new Set()
-  if (activeBlocoId && documento?.blocos) {
-    contarAncestrais(documento.blocos, activeBlocoId, ancestrais)
-  }
 
   return (
     <aside className="w-60 border-r border-gray-200 bg-white flex flex-col shrink-0" ref={sidebarRef}>
@@ -154,9 +118,9 @@ export default function Sidebar({ documento, onSelect, searchResults, searchLoad
                 key={bloco.id}
                 bloco={bloco}
                 onSelect={onSelect}
-                expandido={ancestrais.has(`bloco-${bloco.id}`)}
                 ativo={activeBlocoId === `bloco-${bloco.id}`}
-                expandirTodos={expandirTodos}
+                collapsedBlocos={collapsedBlocos}
+                onToggleBloco={onToggleBloco}
               />
             ))}
           </div>
