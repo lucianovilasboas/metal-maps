@@ -1,4 +1,5 @@
 import json
+import re
 
 from decouple import config
 from django.db.models import Q
@@ -12,6 +13,35 @@ from .serializers import (
     DocumentoDetailSerializer,
     ArtigoSerializer,
 )
+
+
+def _reparar_json(texto):
+    texto = texto.strip()
+    if texto.startswith('```json'):
+        texto = texto[7:]
+    elif texto.startswith('```'):
+        texto = texto[3:]
+    if texto.endswith('```'):
+        texto = texto[:-3]
+    texto = texto.strip()
+
+    try:
+        return json.loads(texto)
+    except json.JSONDecodeError:
+        pass
+
+    texto = texto.replace("'", '"')
+    texto = texto.replace('\n', '\\n').replace('\r', '\\r')
+    texto = texto.replace('\t', ' ')
+    texto = re.sub(r',\s*([}\]])', r'\1', texto)
+
+    match = re.search(r'(\{.*\}|\[.*\])', texto, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group(0))
+        except json.JSONDecodeError:
+            pass
+    raise
 
 
 def _criar_blocos_recursivo(doc, blocos_data, parent=None, artigos_list=None):
@@ -331,7 +361,7 @@ REGRAS:
   ao qual pertence, no campo "artigos" do respectivo bloco
 - Se não houver título para o artigo, gere um resumo curto
 - O slug deve ser uma versão URL-amigável do título
-- Responda APENAS o JSON, sem explicações ou formatação extra
+- IMPORTANTE: O JSON deve ser válido e impecável. Use aspas duplas em todas as chaves e strings. NÃO use aspas simples. NÃO deixe vírgulas sobrando. NÃO inclua comentários ou texto extra. Responda APENAS o JSON puro, sem formatação extra, sem blocos de código.
 
 TEXTO:
 {texto[:40000]}
@@ -342,15 +372,7 @@ TEXTO:
             contents=prompt,
         )
 
-        raw = response.text.strip()
-        if raw.startswith('```json'):
-            raw = raw[7:]
-        if raw.startswith('```'):
-            raw = raw[3:]
-        if raw.endswith('```'):
-            raw = raw[:-3]
-
-        dados = json.loads(raw.strip())
+        dados = _reparar_json(response.text)
 
     except Exception as e:
         return Response({'erro': f'Erro ao processar texto com IA: {str(e)}'}, status=500)
