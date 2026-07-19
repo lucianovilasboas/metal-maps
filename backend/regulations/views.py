@@ -47,9 +47,13 @@ def buscar(request):
     if not q:
         return Response({'resultados': []})
 
-    artigos = Artigo.objects.filter(
-        Q(texto__icontains=q) | Q(titulo__icontains=q) | Q(id_code__icontains=q)
-    ).select_related('capitulo', 'capitulo__documento')
+    slug = request.GET.get('slug', '').strip()
+
+    filtro = Q(texto__icontains=q) | Q(titulo__icontains=q) | Q(id_code__icontains=q)
+    if slug:
+        filtro &= Q(capitulo__documento__slug=slug)
+
+    artigos = Artigo.objects.filter(filtro).select_related('capitulo', 'capitulo__documento')
 
     resultados = []
     for a in artigos:

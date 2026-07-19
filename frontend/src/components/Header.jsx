@@ -1,14 +1,20 @@
-import { useState, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 export default function Header({ docsList, activeSlug, onSelectDocumento, onSearch, onUploadJSON, onUploadText, onExportJSON, onExportPNG }) {
   const [query, setQuery] = useState('')
   const [showUploadMenu, setShowUploadMenu] = useState(false)
   const [showDocMenu, setShowDocMenu] = useState(false)
   const [showExportMenu, setShowExportMenu] = useState(false)
+  const debounceRef = useRef(null)
 
-  const handleSearch = useCallback((e) => {
-    e.preventDefault()
-    onSearch(query)
+  useEffect(() => {
+    clearTimeout(debounceRef.current)
+    if (query.length >= 3) {
+      debounceRef.current = setTimeout(() => onSearch(query), 300)
+    } else {
+      onSearch('')
+    }
+    return () => clearTimeout(debounceRef.current)
   }, [query, onSearch])
 
   const activeDoc = docsList?.find((d) => d.slug === activeSlug)
@@ -52,7 +58,7 @@ export default function Header({ docsList, activeSlug, onSelectDocumento, onSear
         )}
       </div>
 
-      <form onSubmit={handleSearch} className="flex-1 max-w-xl relative">
+      <div className="flex-1 max-w-xl relative">
         <input
           type="text"
           value={query}
@@ -61,7 +67,7 @@ export default function Header({ docsList, activeSlug, onSelectDocumento, onSear
           className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
         />
         <span className="absolute left-3 top-2.5 text-gray-400 text-sm">🔍</span>
-      </form>
+      </div>
 
       <div className="relative">
         <button

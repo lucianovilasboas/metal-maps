@@ -65,14 +65,14 @@ export default function App() {
     }
     setSearchLoading(true)
     try {
-      const res = await buscar(query)
+      const res = await buscar(query, activeSlug)
       setSearchResults(res.resultados)
     } catch {
       setSearchResults([])
     } finally {
       setSearchLoading(false)
     }
-  }, [])
+  }, [activeSlug])
 
   const handleImportFromJSON = useCallback(async (data) => {
     const doc = data.capitulos ? data : data.documentos?.[0]

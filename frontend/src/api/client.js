@@ -24,8 +24,10 @@ export function detalheArtigo(id) {
   return api(`/artigos/${id}/`);
 }
 
-export function buscar(query) {
-  return api(`/buscar/?q=${encodeURIComponent(query)}`);
+export function buscar(query, slug) {
+  const params = new URLSearchParams({ q: query })
+  if (slug) params.set('slug', slug)
+  return api(`/buscar/?${params}`)
 }
 
 export function uploadJSON(data) {
