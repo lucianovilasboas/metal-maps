@@ -1,8 +1,16 @@
 import { useState } from 'react'
 
+const MODEL_OPTIONS = [
+  { provider: 'gemini', model: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+  { provider: 'gemini', model: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+  { provider: 'openai', model: 'gpt-4o-mini',      label: 'GPT-4o Mini' },
+  { provider: 'openai', model: 'gpt-4o',            label: 'GPT-4o' },
+]
+
 export default function TextUploadModal({ onClose, onImported }) {
   const [texto, setTexto] = useState('')
   const [titulo, setTitulo] = useState('')
+  const [selectedModel, setSelectedModel] = useState(MODEL_OPTIONS[0])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -15,6 +23,8 @@ export default function TextUploadModal({ onClose, onImported }) {
     try {
       const body = { texto: texto.trim() }
       if (titulo.trim()) body.titulo = titulo.trim()
+      body.provider = selectedModel.provider
+      body.model = selectedModel.model
 
       const res = await fetch('/api/v1/documentos/upload-texto/', {
         method: 'POST',
@@ -57,6 +67,21 @@ export default function TextUploadModal({ onClose, onImported }) {
             placeholder="Título do documento (opcional — IA sugere se vazio)"
             className="w-full border border-gray-300 rounded-lg p-3 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-400"
           />
+
+          <select
+            value={`${selectedModel.provider}|${selectedModel.model}`}
+            onChange={(e) => {
+              const [provider, model] = e.target.value.split('|')
+              setSelectedModel(MODEL_OPTIONS.find(m => m.provider === provider && m.model === model) || MODEL_OPTIONS[0])
+            }}
+            className="w-full border border-gray-300 rounded-lg p-3 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+          >
+            {MODEL_OPTIONS.map((opt) => (
+              <option key={`${opt.provider}|${opt.model}`} value={`${opt.provider}|${opt.model}`}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
 
           <textarea
             value={texto}

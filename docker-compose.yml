@@ -11,9 +11,7 @@ services:
       - DEBUG=True
       - AI_PROVIDER=${AI_PROVIDER:-gemini}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o}
     command: sh -c "python manage.py migrate && python manage.py seed_default && python manage.py runserver 0.0.0.0:8000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/documentos/', timeout=2)"]

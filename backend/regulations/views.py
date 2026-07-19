@@ -47,8 +47,8 @@ def _reparar_json(texto):
     raise
 
 
-def _chamar_ia(prompt):
-    provider = config('AI_PROVIDER', default='gemini')
+def _chamar_ia(prompt, provider=None, model=None):
+    provider = provider or config('AI_PROVIDER', default='gemini')
     if provider == 'openai':
         from openai import OpenAI
         api_key = config('OPENAI_API_KEY', default=None)
@@ -56,7 +56,7 @@ def _chamar_ia(prompt):
             raise RuntimeError('OPENAI_API_KEY não configurada')
         client = OpenAI(api_key=api_key)
         response = client.chat.completions.create(
-            model=config('OPENAI_MODEL', default='gpt-4o'),
+            model=model or 'gpt-4o-mini',
             messages=[{'role': 'user', 'content': prompt}],
             response_format={'type': 'json_object'},
         )
@@ -68,7 +68,7 @@ def _chamar_ia(prompt):
             raise RuntimeError('GEMINI_API_KEY não configurada')
         client = gemini_client.Client(api_key=api_key)
         response = client.models.generate_content(
-            model=config('GEMINI_MODEL', default='gemini-2.5-flash'),
+            model=model or 'gemini-2.5-flash',
             contents=prompt,
         )
         return response.text
@@ -276,6 +276,8 @@ def atualizar_posicoes(request, slug):
 def upload_texto(request):
     texto = request.data.get('texto', '')
     titulo = request.data.get('titulo', 'Documento importado')
+    provider = request.data.get('provider')
+    model = request.data.get('model')
 
     if not texto.strip():
         return Response({'erro': 'Texto não pode estar vazio'}, status=400)
@@ -391,7 +393,7 @@ TEXTO:
 {texto[:40000]}
 '''
 
-        raw = _chamar_ia(prompt)
+        raw = _chamar_ia(prompt, provider, model)
         dados = _reparar_json(raw)
 
     except Exception as e:
