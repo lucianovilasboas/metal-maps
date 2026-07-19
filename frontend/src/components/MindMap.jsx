@@ -674,10 +674,16 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
               data: { rotulo: sub.rotulo || sub.id_code || '?', parentArticle: artId },
             })
 
+            const incNode = g.nodes[g.nodes.length - 1]
+            const srcNode = artNode
+            const tgtNode = incNode
+            const h = bestHandles(srcNode, tgtNode)
             g.edges.push({
               id: `e-${artId}-${subId}`,
               source: artId,
               target: subId,
+              sourceHandle: h.sourceHandle,
+              targetHandle: h.targetHandle,
               type: 'bezier',
               style: { stroke: '#d1d5db', strokeWidth: 1.5 },
             })
@@ -796,6 +802,7 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
       try { state = existing ? JSON.parse(existing) : {} } catch { state = {} }
       state.positions = draggedPositionsRef.current
       state.collapsed = [...collapsed]
+      state.expandedArts = [...expandedArts]
       localStorage.setItem(`mm-state-${documento.slug}`, JSON.stringify(state))
 
       if (onSalvarPosicoes) onSalvarPosicoes(draggedPositionsRef.current)
