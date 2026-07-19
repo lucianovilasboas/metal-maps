@@ -1,6 +1,6 @@
 import json
 from django.core.management.base import BaseCommand
-from regulations.models import Documento, Capitulo, Artigo
+from regulations.models import Documento, EstruturaBloco, Artigo
 
 
 class Command(BaseCommand):
@@ -27,18 +27,19 @@ class Command(BaseCommand):
             if not created:
                 doc.titulo = titulo
                 doc.save()
-                doc.capitulos.all().delete()
+                doc.blocos.all().delete()
 
             for i, cap_data in enumerate(capitulos):
-                cap = Capitulo.objects.create(
+                bloco = EstruturaBloco.objects.create(
                     documento=doc,
-                    id_code=cap_data.get('id', f'cap{i+1}'),
+                    tipo='capitulo',
+                    rotulo=cap_data.get('id', f'cap{i+1}'),
                     titulo=cap_data.get('titulo', ''),
                     ordem=i + 1,
                 )
                 for j, art_data in enumerate(cap_data.get('artigos', [])):
                     Artigo.objects.create(
-                        capitulo=cap,
+                        bloco=bloco,
                         id_code=art_data.get('id', f'art{j+1}'),
                         titulo=art_data.get('titulo', ''),
                         texto=art_data.get('texto', ''),
@@ -51,10 +52,10 @@ class Command(BaseCommand):
                     rel_ids = art_data.get('relacionados', [])
                     if rel_ids:
                         try:
-                            artigo = Artigo.objects.get(capitulo__documento=doc, id_code=id_code)
+                            artigo = Artigo.objects.get(bloco__documento=doc, id_code=id_code)
                             for rid in rel_ids:
                                 try:
-                                    rel = Artigo.objects.get(capitulo__documento=doc, id_code=rid)
+                                    rel = Artigo.objects.get(bloco__documento=doc, id_code=rid)
                                     artigo.relacionados.add(rel)
                                 except Artigo.DoesNotExist:
                                     pass

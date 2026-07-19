@@ -13,6 +13,67 @@ function highlightText(texto, query) {
   ).join('')
 }
 
+function renderParagrafos(paragrafos, query) {
+  if (!paragrafos?.length) return null
+  return paragrafos.map((par) => (
+    <div key={par.id} className="ml-6 mt-3">
+      <p className="text-sm text-gray-700">
+        <span className="font-semibold text-gray-900">{par.rotulo}</span>{' '}
+        <span dangerouslySetInnerHTML={{ __html: highlightText(par.texto, query) }} />
+      </p>
+      {renderIncisos(par.incisos, query)}
+    </div>
+  ))
+}
+
+function renderIncisos(incisos, query) {
+  if (!incisos?.length) return null
+  return (
+    <div className="ml-8 mt-2 space-y-1">
+      {incisos.map((inc) => (
+        <div key={inc.id}>
+          <p className="text-sm text-gray-600">
+            <span className="font-mono text-gray-800 font-medium">{inc.rotulo}</span>{' '}
+            <span dangerouslySetInnerHTML={{ __html: highlightText(inc.texto, query) }} />
+          </p>
+          {renderAlineas(inc.alineas, query)}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function renderAlineas(alineas, query) {
+  if (!alineas?.length) return null
+  return (
+    <div className="ml-8 mt-1 space-y-1">
+      {alineas.map((al) => (
+        <div key={al.id}>
+          <p className="text-sm text-gray-600">
+            <span className="font-mono text-gray-800">{al.rotulo}</span>{' '}
+            <span dangerouslySetInnerHTML={{ __html: highlightText(al.texto, query) }} />
+          </p>
+          {renderItens(al.itens, query)}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function renderItens(itens, query) {
+  if (!itens?.length) return null
+  return (
+    <div className="ml-8 mt-1 space-y-1">
+      {itens.map((item) => (
+        <p key={item.id} className="text-sm text-gray-600">
+          <span className="font-mono text-gray-800">{item.rotulo}</span>{' '}
+          <span dangerouslySetInnerHTML={{ __html: highlightText(item.texto, query) }} />
+        </p>
+      ))}
+    </div>
+  )
+}
+
 export default function ArticleModal({ artigo, onClose, searchQuery }) {
   useEffect(() => {
     const handler = (e) => {
@@ -23,7 +84,6 @@ export default function ArticleModal({ artigo, onClose, searchQuery }) {
   }, [onClose])
 
   const tituloHtml = useMemo(() => highlightText(artigo.titulo, searchQuery), [artigo.titulo, searchQuery])
-  const textoHtml = useMemo(() => highlightText(artigo.texto, searchQuery), [artigo.texto, searchQuery])
 
   return (
     <div
@@ -51,10 +111,36 @@ export default function ArticleModal({ artigo, onClose, searchQuery }) {
         </div>
 
         <div className="px-6 py-5 overflow-y-auto flex-1">
-          <div
-            className="prose prose-sm max-w-none text-gray-700 leading-relaxed whitespace-pre-line"
-            dangerouslySetInnerHTML={{ __html: textoHtml }}
-          />
+          {artigo.caput && (
+            <div className="mb-4 pb-4 border-b border-gray-100">
+              <p className="text-sm text-gray-900 font-medium">Caput</p>
+              <p
+                className="text-sm text-gray-700 mt-1 leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: highlightText(artigo.caput, searchQuery) }}
+              />
+            </div>
+          )}
+
+          {artigo.texto && (
+            <div className="mb-4">
+              <p
+                className="text-sm text-gray-700 leading-relaxed whitespace-pre-line"
+                dangerouslySetInnerHTML={{ __html: highlightText(artigo.texto, searchQuery) }}
+              />
+            </div>
+          )}
+
+          {artigo.incisos?.length > 0 && !artigo.paragrafos?.length && (
+            <div className="mt-2">
+              {renderIncisos(artigo.incisos, searchQuery)}
+            </div>
+          )}
+
+          {artigo.paragrafos?.length > 0 && (
+            <div className="mt-2">
+              {renderParagrafos(artigo.paragrafos, searchQuery)}
+            </div>
+          )}
         </div>
 
         <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 text-xs text-gray-400 shrink-0">

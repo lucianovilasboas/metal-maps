@@ -1,7 +1,10 @@
 import { useState } from 'react'
 
-function CapituloNode({ capitulo, onSelect }) {
+function BlocoNode({ bloco, onSelect }) {
   const [aberto, setAberto] = useState(false)
+  const filhos = bloco.filhos || []
+  const artigos = bloco.artigos || []
+  const hasChildren = filhos.length > 0 || artigos.length > 0
 
   return (
     <div className="mb-0.5">
@@ -9,22 +12,32 @@ function CapituloNode({ capitulo, onSelect }) {
         onClick={() => setAberto(!aberto)}
         className="w-full flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
       >
-        <span className="text-xs text-gray-400 w-4 shrink-0">
-          {aberto ? '▼' : '▶'}
-        </span>
-        <span className="truncate">{capitulo.titulo}</span>
-        <span className="ml-auto text-xs text-gray-400">{capitulo.artigos?.length || 0}</span>
+        {hasChildren && (
+          <span className="text-xs text-gray-400 w-4 shrink-0">
+            {aberto ? '▼' : '▶'}
+          </span>
+        )}
+        {!hasChildren && <span className="w-4 shrink-0" />}
+        <span className="text-[10px] uppercase text-gray-400 shrink-0">{bloco.tipo}</span>
+        <span className="truncate">{bloco.rotulo} {bloco.titulo}</span>
       </button>
-      {aberto && capitulo.artigos?.map((artigo) => (
-        <button
-          key={artigo.id}
-          onClick={() => onSelect(artigo)}
-          className="w-full flex items-center gap-2 pl-9 pr-3 py-1 text-sm text-gray-600 hover:bg-gray-50 rounded-md transition-colors"
-        >
-          <span className="text-xs text-gray-400 w-8 shrink-0">{artigo.id_code}</span>
-          <span className="truncate">{artigo.titulo}</span>
-        </button>
-      ))}
+      {aberto && (
+        <div className="ml-3 border-l border-gray-100 pl-2">
+          {filhos.map((filho) => (
+            <BlocoNode key={filho.id} bloco={filho} onSelect={onSelect} />
+          ))}
+          {artigos.map((artigo) => (
+            <button
+              key={artigo.id}
+              onClick={() => onSelect(artigo)}
+              className="w-full flex items-center gap-2 pl-3 pr-3 py-1 text-sm text-gray-600 hover:bg-gray-50 rounded-md transition-colors"
+            >
+              <span className="text-xs text-blue-500 w-8 shrink-0 font-mono">{artigo.id_code}</span>
+              <span className="truncate">{artigo.titulo}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -56,8 +69,8 @@ export default function Sidebar({ documento, onSelect, searchResults, searchLoad
                   key={r.id}
                   onClick={() => {
                     if (!documento) return
-                    for (const cap of documento.capitulos) {
-                      for (const art of cap.artigos) {
+                    for (const bloco of recursivoBlocos(documento.blocos)) {
+                      for (const art of (bloco.artigos || [])) {
                         if (art.id === r.id) {
                           onSelect(art)
                           return
@@ -84,10 +97,10 @@ export default function Sidebar({ documento, onSelect, searchResults, searchLoad
             </h2>
           </div>
           <div className="flex-1 overflow-y-auto p-2">
-            {documento?.capitulos?.map((cap) => (
-              <CapituloNode
-                key={cap.id}
-                capitulo={cap}
+            {(documento?.blocos || []).map((bloco) => (
+              <BlocoNode
+                key={bloco.id}
+                bloco={bloco}
                 onSelect={onSelect}
               />
             ))}
@@ -96,4 +109,13 @@ export default function Sidebar({ documento, onSelect, searchResults, searchLoad
       )}
     </aside>
   )
+}
+
+function recursivoBlocos(blocos) {
+  const result = []
+  for (const b of blocos) {
+    result.push(b)
+    if (b.filhos?.length) result.push(...recursivoBlocos(b.filhos))
+  }
+  return result
 }

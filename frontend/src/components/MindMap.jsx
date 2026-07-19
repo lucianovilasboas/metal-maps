@@ -58,6 +58,7 @@ function ChapterNode({ data }) {
       <Handle type="source" position={Position.Bottom} id="bottom" isConnectable={false} style={HANDLE_STYLE} />
       <Handle type="source" position={Position.Left} id="left" isConnectable={false} style={HANDLE_STYLE} />
       <span className="text-xs shrink-0">{collapsed ? '▶' : '▼'}</span>
+      <span className="text-[10px] uppercase text-gray-400 shrink-0">{data.tipo}</span>
       <span className="text-xs truncate font-semibold">{data.label}</span>
       <span className="text-xs bg-amber-200 text-amber-700 px-2 py-0.5 rounded-full shrink-0">{data.count}</span>
     </div>
@@ -107,13 +108,22 @@ function bestHandles(srcNode, tgtNode) {
   return { sourceHandle: 'left', targetHandle: 'right' }
 }
 
+function coletarArtigos(blocos) {
+  const arts = []
+  for (const b of blocos) {
+    arts.push(...(b.artigos || []))
+    if (b.filhos?.length) arts.push(...coletarArtigos(b.filhos))
+  }
+  return arts
+}
+
 function radialLayout(documento, collapsed, draggedPositions) {
-  if (!documento?.capitulos) return { nodes: [], edges: [] }
+  if (!documento?.blocos) return { nodes: [], edges: [] }
 
   const centerX = 0
   const centerY = 0
-  const caps = documento.capitulos
-  const total = caps.length
+  const blocos = documento.blocos
+  const total = blocos.length
   const angleStep = (2 * Math.PI) / total
 
   const allNodes = []
@@ -125,31 +135,34 @@ function radialLayout(documento, collapsed, draggedPositions) {
     id: 'doc',
     type: 'docNode',
     position: dp('doc') || { x: centerX - ROOT_W / 2, y: centerY - ROOT_H / 2 },
-    data: { label: documento.titulo },
+    data: { label: documento.titulo, ementa: documento.ementa },
   })
 
-  caps.forEach((cap, ci) => {
-    const capId = `cap-${cap.id}`
+  blocos.forEach((bloco, ci) => {
+    const blocoId = `bloco-${bloco.id}`
     const midAngle = -Math.PI / 2 + ci * angleStep + angleStep / 2
 
     const capX = centerX + R1 * Math.cos(midAngle)
     const capY = centerY + R1 * Math.sin(midAngle)
 
+    const totalArts = coletarArtigos([bloco]).length
+
     allNodes.push({
-      id: capId,
+      id: blocoId,
       type: 'chapterNode',
-      position: dp(capId) || { x: capX - NODE_W / 2, y: capY - NODE_H / 2 },
+      position: dp(blocoId) || { x: capX - NODE_W / 2, y: capY - NODE_H / 2 },
       data: {
-        label: cap.titulo,
-        id_code: cap.id_code || cap.id,
-        collapsed: collapsed.has(capId),
-        count: (cap.artigos || []).length,
+        label: `${bloco.rotulo} ${bloco.titulo}`.trim(),
+        tipo: bloco.tipo,
+        id_code: bloco.rotulo || bloco.id,
+        collapsed: collapsed.has(blocoId),
+        count: totalArts,
         onToggle: undefined,
       },
     })
 
-    if (!collapsed.has(capId)) {
-      const arts = cap.artigos || []
+    if (!collapsed.has(blocoId)) {
+      const arts = coletarArtigos([bloco])
       const artSpan = angleStep * 0.8
       const artStart = midAngle - artSpan / 2
 
@@ -177,16 +190,20 @@ function radialLayout(documento, collapsed, draggedPositions) {
   const nodeMap = {}
   allNodes.forEach((n) => { nodeMap[n.id] = n })
 
-  caps.forEach((cap) => {
-    const capId = `cap-${cap.id}`
+  const todosBlocos = []
+  function achatar(b) { b.forEach(x => { todosBlocos.push(x); if (x.filhos) achatar(x.filhos) }) }
+  achatar(documento.blocos)
+
+  todosBlocos.forEach((bloco) => {
+    const blocoId = `bloco-${bloco.id}`
     const docNode = nodeMap['doc']
-    const capNode = nodeMap[capId]
-    if (docNode && capNode) {
-      const h = bestHandles(docNode, capNode)
+    const blocoNode = nodeMap[blocoId]
+    if (docNode && blocoNode) {
+      const h = bestHandles(docNode, blocoNode)
       allEdges.push({
-        id: `e-doc-${capId}`,
+        id: `e-doc-${blocoId}`,
         source: 'doc',
-        target: capId,
+        target: blocoId,
         sourceHandle: h.sourceHandle,
         targetHandle: h.targetHandle,
         type: 'bezier',
@@ -194,16 +211,16 @@ function radialLayout(documento, collapsed, draggedPositions) {
       })
     }
 
-    if (!collapsed.has(capId)) {
-      const arts = cap.artigos || []
+    if (!collapsed.has(blocoId)) {
+      const arts = coletarArtigos([bloco])
       arts.forEach((art) => {
         const artId = `art-${art.id}`
         const artNode = nodeMap[artId]
-        if (capNode && artNode) {
-          const h = bestHandles(capNode, artNode)
+        if (blocoNode && artNode) {
+          const h = bestHandles(blocoNode, artNode)
           allEdges.push({
-            id: `e-${capId}-${artId}`,
-            source: capId,
+            id: `e-${blocoId}-${artId}`,
+            source: blocoId,
             target: artId,
             sourceHandle: h.sourceHandle,
             targetHandle: h.targetHandle,
@@ -236,7 +253,7 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
       hasBackend = true
     }
 
-    const allCapIds = new Set((documento.capitulos || []).map(c => `cap-${c.id}`))
+    const allBlocoIds = new Set((documento.blocos || []).map(b => `bloco-${b.id}`))
 
     const saved = localStorage.getItem(`mm-state-${documento.slug}`)
     if (saved) {
@@ -245,14 +262,14 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
         if (!hasBackend && data.positions) {
           draggedPositionsRef.current = data.positions
         }
-        setCollapsed(new Set(data.collapsed || allCapIds))
+        setCollapsed(new Set(data.collapsed || allBlocoIds))
       } catch {
         if (!hasBackend) draggedPositionsRef.current = {}
-        setCollapsed(allCapIds)
+        setCollapsed(allBlocoIds)
       }
     } else if (!hasBackend) {
       draggedPositionsRef.current = {}
-      setCollapsed(allCapIds)
+      setCollapsed(allBlocoIds)
     }
 
     setLoadVersion((v) => v + 1)
@@ -270,11 +287,11 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
     if (loadVersion > 0) saveState()
   }, [collapsed, documento?.slug, loadVersion])
 
-  const handleToggle = useCallback((capId) => {
+  const handleToggle = useCallback((blocoId) => {
     setCollapsed((prev) => {
       const next = new Set(prev)
-      if (next.has(capId)) next.delete(capId)
-      else next.add(capId)
+      if (next.has(blocoId)) next.delete(blocoId)
+      else next.add(blocoId)
       return next
     })
     setTimeout(() => {
@@ -287,20 +304,16 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
 
     let focusSet = null
     if (focoId) {
-      focusSet = new Set([focoId])
-      for (const cap of (documento?.capitulos || [])) {
-        if (focoId === `cap-${cap.id}`) {
-          cap.artigos?.forEach((a) => focusSet.add(`art-${a.id}`))
-          break
-        }
-      }
+      focusSet = new Set([focoId, 'doc'])
     }
 
     if (mostrarRel && relAtivo && documento) {
       const nodeMap = {}
       g.nodes.forEach((n) => { nodeMap[n.id] = n })
-      for (const cap of documento.capitulos) {
-        for (const art of cap.artigos) {
+      const todosBlocos = []
+      ;(function achatar(b) { b.forEach(x => { todosBlocos.push(x); if (x.filhos) achatar(x.filhos) }) })(documento.blocos || [])
+      for (const bloco of todosBlocos) {
+        for (const art of (bloco.artigos || [])) {
           if (`art-${art.id}` !== relAtivo) continue
           const rels = (art.relacionados || []).slice(0, 5)
           rels.forEach((rel) => {
@@ -327,11 +340,13 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
     if (searchResults) {
       searchSet = new Set(['doc'])
       const resultIds = new Set(searchResults.map(r => r.id))
-      for (const cap of (documento?.capitulos || [])) {
-        const capId = `cap-${cap.id}`
-        const artMatches = (cap.artigos || []).filter(a => resultIds.has(a.id))
+      const todosBlocos = []
+      ;(function achatar(b) { b.forEach(x => { todosBlocos.push(x); if (x.filhos) achatar(x.filhos) }) })(documento?.blocos || [])
+      for (const bloco of todosBlocos) {
+        const blocoId = `bloco-${bloco.id}`
+        const artMatches = (bloco.artigos || []).filter(a => resultIds.has(a.id))
         if (artMatches.length > 0) {
-          searchSet.add(capId)
+          searchSet.add(blocoId)
           artMatches.forEach(a => searchSet.add(`art-${a.id}`))
         }
       }
@@ -394,8 +409,10 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
       if (mostrarRel) {
         setRelAtivo((prev) => (prev === node.id ? null : node.id))
       }
-      for (const cap of documento.capitulos || []) {
-        for (const art of cap.artigos || []) {
+      const todosBlocos = []
+      ;(function achatar(b) { b.forEach(x => { todosBlocos.push(x); if (x.filhos) achatar(x.filhos) }) })(documento.blocos || [])
+      for (const bloco of todosBlocos) {
+        for (const art of (bloco.artigos || [])) {
           if (`art-${art.id}` === node.id) {
             onSelectArtigo(art)
             break
@@ -428,10 +445,12 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
 
   useEffect(() => {
     if (!focoId || !reactFlowInstanceRef.current || !documento) return
-    const focusIds = new Set([focoId])
-    for (const cap of documento.capitulos) {
-      if (focoId === `cap-${cap.id}`) {
-        cap.artigos?.forEach((a) => focusIds.add(`art-${a.id}`))
+    const todosBlocos = []
+    ;(function achatar(b) { b.forEach(x => { todosBlocos.push(x); if (x.filhos) achatar(x.filhos) }) })(documento.blocos || [])
+    const focusIds = new Set([focoId, 'doc'])
+    for (const bloco of todosBlocos) {
+      if (focoId === `bloco-${bloco.id}`) {
+        bloco.artigos?.forEach((a) => focusIds.add(`art-${a.id}`))
         break
       }
     }

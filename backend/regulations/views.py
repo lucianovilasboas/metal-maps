@@ -1,5 +1,4 @@
 import json
-import os
 
 from decouple import config
 from django.db.models import Q
@@ -7,12 +6,117 @@ from google import genai as gemini_client
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import Documento, Capitulo, Artigo
+from .models import Documento, EstruturaBloco, Artigo, Paragrafo, Inciso, Alinea, Item, Disposicao
 from .serializers import (
     DocumentoListSerializer,
     DocumentoDetailSerializer,
     ArtigoSerializer,
 )
+
+
+def _criar_blocos_recursivo(doc, blocos_data, parent=None):
+    for i, bloco_data in enumerate(blocos_data):
+        bloco = EstruturaBloco.objects.create(
+            documento=doc,
+            parent=parent,
+            tipo=bloco_data.get('tipo', 'capitulo'),
+            rotulo=bloco_data.get('rotulo', ''),
+            titulo=bloco_data.get('titulo', ''),
+            ordem=i + 1,
+        )
+        filhos = bloco_data.get('blocos', [])
+        if filhos:
+            _criar_blocos_recursivo(doc, filhos, parent=bloco)
+
+
+def _criar_artigos(doc, artigos_data):
+    for j, art_data in enumerate(artigos_data):
+        bloco_ref = art_data.get('bloco_ref', None)
+        bloco = None
+        if bloco_ref:
+            try:
+                bloco = EstruturaBloco.objects.get(documento=doc, rotulo=bloco_ref)
+            except EstruturaBloco.DoesNotExist:
+                pass
+        if not bloco:
+            primeiro = EstruturaBloco.objects.filter(documento=doc).first()
+            if primeiro:
+                bloco = primeiro
+
+        artigo = Artigo.objects.create(
+            bloco=bloco,
+            id_code=art_data.get('id', f'art{j+1}'),
+            titulo=art_data.get('titulo', ''),
+            texto=art_data.get('texto', ''),
+            caput=art_data.get('caput', ''),
+            ordem=j + 1,
+        )
+
+        for par_data in art_data.get('paragrafos', []):
+            par = Paragrafo.objects.create(
+                artigo=artigo,
+                rotulo=par_data.get('rotulo', ''),
+                texto=par_data.get('texto', ''),
+                ordem=par_data.get('ordem', 0),
+            )
+            for inc_data in par_data.get('incisos', []):
+                inc = Inciso.objects.create(
+                    paragrafo=par,
+                    rotulo=inc_data.get('rotulo', ''),
+                    texto=inc_data.get('texto', ''),
+                    ordem=inc_data.get('ordem', 0),
+                )
+                for al_data in inc_data.get('alineas', []):
+                    al = Alinea.objects.create(
+                        inciso=inc,
+                        rotulo=al_data.get('rotulo', ''),
+                        texto=al_data.get('texto', ''),
+                        ordem=al_data.get('ordem', 0),
+                    )
+                    for it_data in al_data.get('itens', []):
+                        Item.objects.create(
+                            alinea=al,
+                            rotulo=it_data.get('rotulo', ''),
+                            texto=it_data.get('texto', ''),
+                            ordem=it_data.get('ordem', 0),
+                        )
+
+        for inc_data in art_data.get('incisos', []):
+            Inciso.objects.create(
+                artigo=artigo,
+                rotulo=inc_data.get('rotulo', ''),
+                texto=inc_data.get('texto', ''),
+                ordem=inc_data.get('ordem', 0),
+            )
+
+
+def _criar_relacionados(doc, artigos_data):
+    for j, art_data in enumerate(artigos_data):
+        id_code = art_data.get('id', f'art{j+1}')
+        relacionados_ids = art_data.get('relacionados', [])
+        if relacionados_ids and isinstance(relacionados_ids[0], dict):
+            relacionados_ids = [r.get('id_code', str(r.get('id', ''))) for r in relacionados_ids]
+        if relacionados_ids:
+            try:
+                artigo = Artigo.objects.get(bloco__documento=doc, id_code=id_code)
+                for rel_id in relacionados_ids:
+                    try:
+                        rel = Artigo.objects.get(bloco__documento=doc, id_code=rel_id)
+                        artigo.relacionados.add(rel)
+                    except Artigo.DoesNotExist:
+                        pass
+            except Artigo.DoesNotExist:
+                pass
+
+
+def _criar_disposicoes(doc, disposicoes_data):
+    for i, disp_data in enumerate(disposicoes_data):
+        Disposicao.objects.create(
+            documento=doc,
+            tipo=disp_data.get('tipo', 'gerais'),
+            texto=disp_data.get('texto', ''),
+            ordem=i + 1,
+        )
 
 
 @api_view(['GET'])
@@ -25,7 +129,9 @@ def listar_documentos(request):
 def detalhe_documento(request, slug):
     try:
         doc = Documento.objects.prefetch_related(
-            'capitulos__artigos__relacionados'
+            'blocos__artigos__relacionados',
+            'blocos__filhos__artigos__relacionados',
+            'disposicoes',
         ).get(slug=slug)
     except Documento.DoesNotExist:
         return Response({'erro': 'Documento não encontrado'}, status=404)
@@ -35,7 +141,9 @@ def detalhe_documento(request, slug):
 @api_view(['GET'])
 def detalhe_artigo(request, pk):
     try:
-        artigo = Artigo.objects.prefetch_related('relacionados').get(pk=pk)
+        artigo = Artigo.objects.prefetch_related(
+            'relacionados', 'paragrafos__incisos__alineas__itens', 'incisos'
+        ).get(pk=pk)
     except Artigo.DoesNotExist:
         return Response({'erro': 'Artigo não encontrado'}, status=404)
     return Response(ArtigoSerializer(artigo).data)
@@ -49,22 +157,24 @@ def buscar(request):
 
     slug = request.GET.get('slug', '').strip()
 
-    filtro = Q(texto__icontains=q) | Q(titulo__icontains=q) | Q(id_code__icontains=q)
+    filtro = Q(texto__icontains=q) | Q(titulo__icontains=q) | Q(id_code__icontains=q) | Q(caput__icontains=q)
     if slug:
-        filtro &= Q(capitulo__documento__slug=slug)
+        filtro &= Q(bloco__documento__slug=slug)
 
-    artigos = Artigo.objects.filter(filtro).select_related('capitulo', 'capitulo__documento')
+    artigos = Artigo.objects.filter(filtro).select_related('bloco', 'bloco__documento')
 
     resultados = []
     for a in artigos:
+        bloco = a.bloco
+        doc = bloco.documento
         resultados.append({
             'id': a.id,
             'id_code': a.id_code,
             'titulo': a.titulo,
-            'texto_preview': a.texto[:200],
-            'capitulo': a.capitulo.titulo,
-            'documento': a.capitulo.documento.titulo,
-            'documento_slug': a.capitulo.documento.slug,
+            'texto_preview': a.texto[:200] or a.caput[:200],
+            'capitulo': bloco.titulo,
+            'documento': doc.titulo,
+            'documento_slug': doc.slug,
         })
 
     return Response({'resultados': resultados})
@@ -75,47 +185,28 @@ def upload_json(request):
     data = request.data
     titulo = data.get('titulo', 'Documento sem título')
     slug = data.get('slug', titulo.lower().replace(' ', '-').replace('ç', 'c').replace('ã', 'a').replace('õ', 'o')[:200])
-    capitulos_data = data.get('capitulos', [])
 
     doc, created = Documento.objects.get_or_create(slug=slug, defaults={'titulo': titulo})
     if not created:
         doc.titulo = titulo
         doc.save()
-        doc.capitulos.all().delete()
+        doc.blocos.all().delete()
 
-    for i, cap_data in enumerate(capitulos_data):
-        cap = Capitulo.objects.create(
-            documento=doc,
-            id_code=cap_data.get('id', f'cap{i+1}'),
-            titulo=cap_data.get('titulo', ''),
-            ordem=i + 1,
-        )
-        for j, art_data in enumerate(cap_data.get('artigos', [])):
-            artigo = Artigo.objects.create(
-                capitulo=cap,
-                id_code=art_data.get('id', f'art{j+1}'),
-                titulo=art_data.get('titulo', ''),
-                texto=art_data.get('texto', ''),
-                ordem=j + 1,
-            )
+    doc.ementa = data.get('ementa', '')
+    doc.preambulo = data.get('preambulo', '')
+    doc.save()
 
-    for i, cap_data in enumerate(capitulos_data):
-        for j, art_data in enumerate(cap_data.get('artigos', [])):
-            id_code = art_data.get('id', f'art{j+1}')
-            relacionados_ids = art_data.get('relacionados', [])
-            if relacionados_ids and isinstance(relacionados_ids[0], dict):
-                relacionados_ids = [r.get('id_code', str(r.get('id', ''))) for r in relacionados_ids]
-            if relacionados_ids:
-                try:
-                    artigo = Artigo.objects.get(capitulo__documento=doc, id_code=id_code)
-                    for rel_id in relacionados_ids:
-                        try:
-                            rel = Artigo.objects.get(capitulo__documento=doc, id_code=rel_id)
-                            artigo.relacionados.add(rel)
-                        except Artigo.DoesNotExist:
-                            pass
-                except Artigo.DoesNotExist:
-                    pass
+    blocos_data = data.get('blocos', data.get('capitulos', []))
+    artigos_data = data.get('artigos', [])
+    disposicoes_data = data.get('disposicoes', [])
+
+    _criar_blocos_recursivo(doc, blocos_data)
+    _criar_artigos(doc, artigos_data)
+    if disposicoes_data:
+        _criar_disposicoes(doc, disposicoes_data)
+
+    if rel_data := data.get('artigos', []):
+        _criar_relacionados(doc, rel_data)
 
     return Response(DocumentoDetailSerializer(doc).data, status=201 if created else 200)
 
@@ -146,39 +237,114 @@ def upload_texto(request):
     try:
         client = gemini_client.Client(api_key=api_key)
 
-        prompt = f'''Você é um especialista em estruturação de documentos normativos.
+        prompt = f'''Você é um especialista em estruturação de documentos normativos brasileiros.
 Receba o texto abaixo e converta para JSON seguindo este schema exato:
 
 {{
   "slug": "identificador-url-amigavel",
-  "titulo": "{titulo}",
-  "capitulos": [
+  "titulo": "Título do Documento",
+  "ementa": "Texto resumo do objeto da lei (se houver)",
+  "preambulo": "Texto formal de autoridade que edita a norma (se houver)",
+  "blocos": [
     {{
-      "id": "cap1",
-      "titulo": "Nome do Capítulo ou 'Sem capítulo'",
-      "artigos": [
+      "tipo": "parte",
+      "rotulo": "PARTE I",
+      "titulo": "Parte Geral",
+      "blocos": [
         {{
-          "id": "art1",
-          "titulo": "Título ou resumo do artigo",
-          "texto": "Texto completo do artigo",
-          "relacionados": ["art2", "art5"]
+          "tipo": "livro",
+          "rotulo": "LIVRO I",
+          "titulo": "Nome do Livro",
+          "blocos": [
+            {{
+              "tipo": "titulo",
+              "rotulo": "TÍTULO I",
+              "titulo": "Nome do Título",
+              "blocos": [
+                {{
+                  "tipo": "capitulo",
+                  "rotulo": "CAPÍTULO I",
+                  "titulo": "Nome do Capítulo",
+                  "blocos": [
+                    {{
+                      "tipo": "secao",
+                      "rotulo": "SEÇÃO I",
+                      "titulo": "Nome da Seção",
+                      "blocos": [
+                        {{
+                          "tipo": "subsecao",
+                          "rotulo": "SUBSEÇÃO I",
+                          "titulo": "Nome da Subseção",
+                          "blocos": []
+                        }}
+                      ]
+                    }}
+                  ]
+                }}
+              ]
+            }}
+          ]
         }}
       ]
     }}
+  ],
+  "artigos": [
+    {{
+      "id": "art-1",
+      "rotulo": "Art. 1º",
+      "titulo": "Objeto da Lei",
+      "caput": "Esta Lei estabelece as normas...",
+      "texto": "Texto completo do artigo (caput + paragrafos + incisos)",
+      "bloco_ref": "CAPÍTULO I",
+      "paragrafos": [
+        {{
+          "rotulo": "§ 1º",
+          "texto": "Texto do parágrafo.",
+          "ordem": 1,
+          "incisos": [
+            {{
+              "rotulo": "I",
+              "texto": "Descrição do inciso.",
+              "ordem": 1,
+              "alineas": [
+                {{
+                  "rotulo": "a)",
+                  "texto": "Texto da alínea.",
+                  "ordem": 1,
+                  "itens": [
+                    {{ "rotulo": "1.", "texto": "Texto do item.", "ordem": 1 }}
+                  ]
+                }}
+              ]
+            }}
+          ]
+        }}
+      ],
+      "incisos": [],
+      "relacionados": ["art-2"]
+    }}
+  ],
+  "disposicoes": [
+    {{ "tipo": "gerais", "texto": "Texto das disposições gerais." }},
+    {{ "tipo": "transitorias", "texto": "Texto das disposições transitórias." }},
+    {{ "tipo": "finais", "texto": "Texto das disposições finais." }}
   ]
 }}
 
 REGRAS:
-- Identifique capítulos e artigos no texto
-- Preserve o texto COMPLETO de cada artigo, sem resumos
-- Relacione artigos que mencionam uns aos outros
-- Se não houver capítulos, coloque tudo em um único capítulo
+- Identifique a macroestrutura completa: Parte → Livro → Título → Capítulo → Seção → Subseção
+- Use APENAS os níveis que existirem no texto (não invente)
+- Extraia o caput (enunciado principal) de cada artigo separadamente
+- Extraia parágrafos, incisos, alíneas e itens com seus respectivos textos
+- Preserve o texto COMPLETO de cada dispositivo, sem resumos
+- Relacione artigos que mencionam uns aos outros (use os IDs como "art-1")
+- O campo "bloco_ref" deve referenciar o rotulo do bloco pai (ex: "CAPÍTULO I")
 - Se não houver título para o artigo, gere um resumo curto
 - O slug deve ser uma versão URL-amigável do título
 - Responda APENAS o JSON, sem explicações ou formatação extra
 
 TEXTO:
-{texto[:30000]}
+{texto[:40000]}
 '''
 
         response = client.models.generate_content(
@@ -203,46 +369,27 @@ TEXTO:
         dados = dados['documentos'][0]
 
     slug = dados.get('slug', titulo.lower().replace(' ', '-').replace('ç', 'c').replace('ã', 'a').replace('õ', 'o')[:200])
-    capitulos_data = dados.get('capitulos', [])
+    blocos_data = dados.get('blocos', dados.get('capitulos', []))
+    artigos_data = dados.get('artigos', [])
+    disposicoes_data = dados.get('disposicoes', [])
 
     doc, created = Documento.objects.get_or_create(slug=slug, defaults={'titulo': titulo})
     if not created:
         doc.titulo = titulo
         doc.save()
-        doc.capitulos.all().delete()
+        doc.blocos.all().delete()
+        Artigo.objects.filter(bloco__documento=doc).delete()
+        Disposicao.objects.filter(documento=doc).delete()
 
-    for i, cap_data in enumerate(capitulos_data):
-        cap = Capitulo.objects.create(
-            documento=doc,
-            id_code=cap_data.get('id', f'cap{i+1}'),
-            titulo=cap_data.get('titulo', ''),
-            ordem=i + 1,
-        )
-        for j, art_data in enumerate(cap_data.get('artigos', [])):
-            Artigo.objects.create(
-                capitulo=cap,
-                id_code=art_data.get('id', f'art{j+1}'),
-                titulo=art_data.get('titulo', ''),
-                texto=art_data.get('texto', ''),
-                ordem=j + 1,
-            )
+    doc.ementa = dados.get('ementa', '')
+    doc.preambulo = dados.get('preambulo', '')
+    doc.save()
 
-    for i, cap_data in enumerate(capitulos_data):
-        for j, art_data in enumerate(cap_data.get('artigos', [])):
-            id_code = art_data.get('id', f'art{j+1}')
-            relacionados_ids = art_data.get('relacionados', [])
-            if relacionados_ids and isinstance(relacionados_ids[0], dict):
-                relacionados_ids = [r.get('id_code', str(r.get('id', ''))) for r in relacionados_ids]
-            if relacionados_ids:
-                try:
-                    artigo = Artigo.objects.get(capitulo__documento=doc, id_code=id_code)
-                    for rel_id in relacionados_ids:
-                        try:
-                            rel = Artigo.objects.get(capitulo__documento=doc, id_code=rel_id)
-                            artigo.relacionados.add(rel)
-                        except Artigo.DoesNotExist:
-                            pass
-                except Artigo.DoesNotExist:
-                    pass
+    _criar_blocos_recursivo(doc, blocos_data)
+    _criar_artigos(doc, artigos_data)
+    _criar_relacionados(doc, artigos_data)
+    if disposicoes_data:
+        _criar_disposicoes(doc, disposicoes_data)
 
+    doc.refresh_from_db()
     return Response(DocumentoDetailSerializer(doc).data, status=201)
