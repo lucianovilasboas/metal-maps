@@ -1,4 +1,9 @@
+import json
+import os
+
+from decouple import config
 from django.db.models import Q
+from google import genai as gemini_client
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -120,3 +125,120 @@ def atualizar_posicoes(request, slug):
     doc.posicoes = request.data.get('posicoes', {})
     doc.save()
     return Response({'status': 'ok'})
+
+
+@api_view(['POST'])
+def upload_texto(request):
+    texto = request.data.get('texto', '')
+    titulo = request.data.get('titulo', 'Documento importado')
+
+    if not texto.strip():
+        return Response({'erro': 'Texto não pode estar vazio'}, status=400)
+
+    api_key = config('GEMINI_API_KEY', default=None)
+    if not api_key:
+        return Response({'erro': 'GEMINI_API_KEY não configurada'}, status=500)
+
+    try:
+        client = gemini_client.Client(api_key=api_key)
+
+        prompt = f'''Você é um especialista em estruturação de documentos normativos.
+Receba o texto abaixo e converta para JSON seguindo este schema exato:
+
+{{
+  "slug": "identificador-url-amigavel",
+  "titulo": "{titulo}",
+  "capitulos": [
+    {{
+      "id": "cap1",
+      "titulo": "Nome do Capítulo ou 'Sem capítulo'",
+      "artigos": [
+        {{
+          "id": "art1",
+          "titulo": "Título ou resumo do artigo",
+          "texto": "Texto completo do artigo",
+          "relacionados": ["art2", "art5"]
+        }}
+      ]
+    }}
+  ]
+}}
+
+REGRAS:
+- Identifique capítulos e artigos no texto
+- Preserve o texto COMPLETO de cada artigo, sem resumos
+- Relacione artigos que mencionam uns aos outros
+- Se não houver capítulos, coloque tudo em um único capítulo
+- Se não houver título para o artigo, gere um resumo curto
+- O slug deve ser uma versão URL-amigável do título
+- Responda APENAS o JSON, sem explicações ou formatação extra
+
+TEXTO:
+{texto[:30000]}
+'''
+
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
+
+        raw = response.text.strip()
+        if raw.startswith('```json'):
+            raw = raw[7:]
+        if raw.startswith('```'):
+            raw = raw[3:]
+        if raw.endswith('```'):
+            raw = raw[:-3]
+
+        dados = json.loads(raw.strip())
+
+    except Exception as e:
+        return Response({'erro': f'Erro ao processar texto com IA: {str(e)}'}, status=500)
+
+    if 'documentos' in dados:
+        dados = dados['documentos'][0]
+
+    slug = dados.get('slug', titulo.lower().replace(' ', '-').replace('ç', 'c').replace('ã', 'a').replace('õ', 'o')[:200])
+    capitulos_data = dados.get('capitulos', [])
+
+    doc, created = Documento.objects.get_or_create(slug=slug, defaults={'titulo': titulo})
+    if not created:
+        doc.titulo = titulo
+        doc.save()
+        doc.capitulos.all().delete()
+
+    for i, cap_data in enumerate(capitulos_data):
+        cap = Capitulo.objects.create(
+            documento=doc,
+            id_code=cap_data.get('id', f'cap{i+1}'),
+            titulo=cap_data.get('titulo', ''),
+            ordem=i + 1,
+        )
+        for j, art_data in enumerate(cap_data.get('artigos', [])):
+            Artigo.objects.create(
+                capitulo=cap,
+                id_code=art_data.get('id', f'art{j+1}'),
+                titulo=art_data.get('titulo', ''),
+                texto=art_data.get('texto', ''),
+                ordem=j + 1,
+            )
+
+    for i, cap_data in enumerate(capitulos_data):
+        for j, art_data in enumerate(cap_data.get('artigos', [])):
+            id_code = art_data.get('id', f'art{j+1}')
+            relacionados_ids = art_data.get('relacionados', [])
+            if relacionados_ids and isinstance(relacionados_ids[0], dict):
+                relacionados_ids = [r.get('id_code', str(r.get('id', ''))) for r in relacionados_ids]
+            if relacionados_ids:
+                try:
+                    artigo = Artigo.objects.get(capitulo__documento=doc, id_code=id_code)
+                    for rel_id in relacionados_ids:
+                        try:
+                            rel = Artigo.objects.get(capitulo__documento=doc, id_code=rel_id)
+                            artigo.relacionados.add(rel)
+                        except Artigo.DoesNotExist:
+                            pass
+                except Artigo.DoesNotExist:
+                    pass
+
+    return Response(DocumentoDetailSerializer(doc).data, status=201)
