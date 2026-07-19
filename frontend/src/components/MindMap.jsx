@@ -104,7 +104,7 @@ function IncisoNode({ data }) {
     <div
       onClick={data.onClick}
       className={`px-2 py-0.5 rounded-full text-[10px] cursor-grab active:cursor-grabbing select-none flex items-center justify-center border ${blurLevelClass(data.blurLevel)} border-gray-200 bg-white hover:border-blue-300`}
-      style={{ width: 'auto', minWidth: 36, height: 24, minHeight: 24 }}
+      style={{ width: 'auto', minWidth: 44, height: 24, minHeight: 24 }}
     >
       <Handle type="target" position={Position.Top} id="top" isConnectable={false} style={HANDLE_STYLE} />
       <Handle type="target" position={Position.Right} id="right" isConnectable={false} style={HANDLE_STYLE} />
@@ -563,13 +563,16 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
           draggedPositionsRef.current = data.positions
         }
         setCollapsed(new Set(data.collapsed || allBlocoIds))
+        setExpandedArts(new Set(data.expandedArts || []))
       } catch {
         if (!hasBackend) draggedPositionsRef.current = {}
         setCollapsed(allBlocoIds)
+        setExpandedArts(new Set())
       }
     } else if (!hasBackend) {
       draggedPositionsRef.current = {}
       setCollapsed(allBlocoIds)
+      setExpandedArts(new Set())
     }
 
     setLoadVersion((v) => v + 1)
@@ -580,12 +583,13 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
     localStorage.setItem(`mm-state-${documento.slug}`, JSON.stringify({
       positions: draggedPositionsRef.current,
       collapsed: [...collapsed],
+      expandedArts: [...expandedArts],
     }))
   }
 
   useEffect(() => {
     if (loadVersion > 0) saveState()
-  }, [collapsed, documento?.slug, loadVersion])
+  }, [collapsed, documento?.slug, loadVersion, expandedArts])
 
   useEffect(() => {
     if (!activeBlocoId) return
@@ -635,7 +639,7 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
     const g = layoutFn(documento, collapsed, draggedPositionsRef.current)
 
     if (expandedArts.size > 0 && documento?.blocos) {
-      const incisoR = 60
+      const dp = (id) => draggedPositionsRef.current[id] || null
       const artNodeMap = {}
       g.nodes.forEach(n => { artNodeMap[n.id] = n })
 
@@ -655,23 +659,19 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
           if (subs.length === 0) continue
 
           const cx = artNode.position.x + (NODE_W - 20) / 2
-          const cy = artNode.position.y + (NODE_H - 8) / 2
-          const total = subs.length
-          const arcSpan = Math.PI * 0.6
-          const startAngle = -Math.PI / 2 - arcSpan / 2
+          const cy = artNode.position.y + (NODE_H - 8) / 2 + 30
 
           subs.forEach((sub, si) => {
             const isPar = sub.texto !== undefined && sub.rotulo?.startsWith('§')
             const subId = isPar ? `par-${sub.id}` : `inc-${sub.id}`
-            const angle = startAngle + (arcSpan * si) / (total - 1 || 1)
-            const sx = cx + incisoR * Math.cos(angle)
-            const sy = cy + incisoR * Math.sin(angle)
+            const sx = cx
+            const sy = cy + si * 28
 
             g.nodes.push({
               id: subId,
               type: 'incisoNode',
-              position: { x: sx - 30, y: sy - 12 },
-              data: { rotulo: sub.rotulo, parentArticle: artId },
+              position: dp(subId) || { x: sx - 30, y: sy - 12 },
+              data: { rotulo: sub.rotulo || sub.id_code || '?', parentArticle: artId },
             })
 
             g.edges.push({
