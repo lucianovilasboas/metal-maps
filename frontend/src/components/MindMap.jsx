@@ -237,7 +237,7 @@ function acharBlocosRecursivo(blocos) {
   return result
 }
 
-export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, containerRef, searchResults }) {
+export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, containerRef, searchResults, activeBlocoId }) {
   const [collapsed, setCollapsed] = useState(new Set())
   const [focoId, setFocoId] = useState(null)
   const [mostrarRel, setMostrarRel] = useState(false)
@@ -288,6 +288,23 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
   useEffect(() => {
     if (loadVersion > 0) saveState()
   }, [collapsed, documento?.slug, loadVersion])
+
+  useEffect(() => {
+    if (!activeBlocoId) return
+    setFocoId(activeBlocoId)
+    setCollapsed((prev) => {
+      if (!prev.has(activeBlocoId)) return prev
+      const next = new Set(prev)
+      next.delete(activeBlocoId)
+      return next
+    })
+    setTimeout(() => {
+      const el = document.querySelector(`[data-id="${activeBlocoId}"]`)
+      if (el && reactFlowInstanceRef.current) {
+        reactFlowInstanceRef.current.fitView({ duration: 400, padding: 0.3 })
+      }
+    }, 100)
+  }, [activeBlocoId])
 
   const handleToggle = useCallback((blocoId) => {
     setCollapsed((prev) => {

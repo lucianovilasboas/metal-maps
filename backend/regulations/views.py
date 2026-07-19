@@ -371,6 +371,7 @@ TEXTO:
 
     doc.ementa = dados.get('ementa') or ''
     doc.preambulo = dados.get('preambulo') or ''
+    doc.titulo = dados.get('titulo') or titulo or 'Documento importado'
     doc.save()
 
     artigos_list = []

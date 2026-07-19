@@ -74,7 +74,7 @@ function renderItens(itens, query) {
   )
 }
 
-export default function ArticleModal({ artigo, onClose, searchQuery }) {
+export default function ArticleModal({ artigo, onClose, searchQuery, onNavigate }) {
   useEffect(() => {
     const handler = (e) => {
       if (e.key === 'Escape') onClose()
@@ -84,6 +84,7 @@ export default function ArticleModal({ artigo, onClose, searchQuery }) {
   }, [onClose])
 
   const tituloHtml = useMemo(() => highlightText(artigo.titulo, searchQuery), [artigo.titulo, searchQuery])
+  const caminho = artigo.caminho || []
 
   return (
     <div
@@ -95,9 +96,26 @@ export default function ArticleModal({ artigo, onClose, searchQuery }) {
         onClick={(e) => e.stopPropagation()}
         className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col overflow-hidden"
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <span className="inline-flex items-center px-2.5 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full whitespace-nowrap">
+        <div className="flex items-center justify-between px-6 py-3 border-b border-gray-100 shrink-0">
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
+            {caminho.length > 0 && (
+              <nav className="flex items-center gap-1 text-xs text-gray-400 mr-2">
+                {caminho.map((item, i) => (
+                  <span key={item.id} className="flex items-center gap-1">
+                    {i > 0 && <span className="text-gray-300">›</span>}
+                    <button
+                      onClick={() => onNavigate(item.id)}
+                      className="text-blue-600 hover:underline truncate max-w-[120px]"
+                      title={item.rotulo}
+                    >
+                      {item.rotulo}
+                    </button>
+                  </span>
+                ))}
+                <span className="text-gray-300 ml-1">›</span>
+              </nav>
+            )}
+            <span className="inline-flex items-center px-2.5 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full whitespace-nowrap shrink-0">
               {artigo.id_code}
             </span>
             <h2 className="text-lg font-bold text-gray-900 truncate" dangerouslySetInnerHTML={{ __html: tituloHtml }} />

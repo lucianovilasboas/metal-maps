@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 export default function TextUploadModal({ onClose, onImported }) {
   const [texto, setTexto] = useState('')
+  const [titulo, setTitulo] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -12,10 +13,13 @@ export default function TextUploadModal({ onClose, onImported }) {
     setError('')
 
     try {
+      const body = { texto: texto.trim() }
+      if (titulo.trim()) body.titulo = titulo.trim()
+
       const res = await fetch('/api/v1/documentos/upload-texto/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ texto: texto.trim(), titulo: 'Documento importado' }),
+        body: JSON.stringify(body),
       })
 
       if (!res.ok) {
@@ -45,6 +49,14 @@ export default function TextUploadModal({ onClose, onImported }) {
           <p className="text-sm text-gray-500 mb-4">
             Cole o texto do regulamento abaixo. A IA vai estruturar automaticamente em capítulos, artigos e relacionamentos.
           </p>
+
+          <input
+            type="text"
+            value={titulo}
+            onChange={(e) => setTitulo(e.target.value)}
+            placeholder="Título do documento (opcional — IA sugere se vazio)"
+            className="w-full border border-gray-300 rounded-lg p-3 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
 
           <textarea
             value={texto}

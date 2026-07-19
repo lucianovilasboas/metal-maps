@@ -19,9 +19,33 @@ function downloadFile(content, filename, type = 'application/json') {
   URL.revokeObjectURL(url)
 }
 
+function acharBlocosRecursivo(blocos) {
+  const result = []
+  for (const b of blocos) {
+    result.push(b)
+    if (b.filhos?.length) result.push(...acharBlocosRecursivo(b.filhos))
+  }
+  return result
+}
+
+function encontrarCaminho(blocos, artigoId) {
+  const todos = acharBlocosRecursivo(blocos || [])
+  for (const bloco of todos) {
+    for (const art of (bloco.artigos || [])) {
+      if (art.id === artigoId) {
+        const caminho = []
+        caminho.push({ id: `bloco-${bloco.id}`, rotulo: `${bloco.rotulo} ${bloco.titulo}`.trim(), tipo: 'bloco' })
+        return caminho
+      }
+    }
+  }
+  return []
+}
+
 export default function App() {
   const [documento, setDocumento] = useState(null)
   const [artigoModal, setArtigoModal] = useState(null)
+  const [activeBlocoId, setActiveBlocoId] = useState(null)
   const [showUploadJSON, setShowUploadJSON] = useState(false)
   const [showUploadText, setShowUploadText] = useState(false)
   const [searchResults, setSearchResults] = useState(null)
@@ -38,6 +62,7 @@ export default function App() {
 
   const loadDocumento = useCallback((slug) => {
     setSearchResults(null)
+    setActiveBlocoId(null)
     setActiveSlug(slug)
     detalheDocumento(slug).then((doc) => setDocumento(doc))
   }, [])
@@ -55,7 +80,13 @@ export default function App() {
   }, [activeSlug])
 
   const handleSelectArtigo = useCallback((artigo) => {
-    setArtigoModal(artigo)
+    const caminho = encontrarCaminho(documento?.blocos, artigo.id)
+    setArtigoModal({ ...artigo, caminho })
+  }, [documento])
+
+  const handleNavigate = useCallback((blocoId) => {
+    setArtigoModal(null)
+    setActiveBlocoId(blocoId)
   }, [])
 
   const handleSearch = useCallback(async (query) => {
@@ -76,7 +107,7 @@ export default function App() {
   }, [activeSlug])
 
   const handleImportFromJSON = useCallback(async (data) => {
-    const doc = data.capitulos ? data : data.documentos?.[0]
+    const doc = (data.blocos || data.capitulos) ? data : data.documentos?.[0]
     if (doc) {
       setDocumento(doc)
       setActiveSlug(doc.slug)
@@ -145,6 +176,8 @@ export default function App() {
           searchResults={searchResults}
           searchLoading={searchLoading}
           onClearSearch={() => setSearchResults(null)}
+          activeBlocoId={activeBlocoId}
+          onNavigate={handleNavigate}
         />
 
         <div className="flex-1 min-w-0 relative">
@@ -154,6 +187,8 @@ export default function App() {
             onSalvarPosicoes={handleSalvarPosicoes}
             containerRef={mindMapRef}
             searchResults={searchResults}
+            activeBlocoId={activeBlocoId}
+            onNavigate={handleNavigate}
           />
         </div>
       </div>
@@ -163,6 +198,7 @@ export default function App() {
           artigo={artigoModal}
           onClose={() => setArtigoModal(null)}
           searchQuery={searchQuery}
+          onNavigate={handleNavigate}
         />
       )}
 
