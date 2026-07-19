@@ -52,6 +52,7 @@ export default function App() {
   const [searchLoading, setSearchLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [activeSlug, setActiveSlug] = useState(() => localStorage.getItem('mm-active-slug'))
+  const [searchVersion, setSearchVersion] = useState(0)
   const mindMapRef = useRef(null)
   const queryClient = useQueryClient()
 
@@ -62,6 +63,8 @@ export default function App() {
 
   const loadDocumento = useCallback((slug) => {
     setSearchResults(null)
+    setSearchQuery('')
+    setSearchVersion(v => v + 1)
     setActiveBlocoId(null)
     setActiveSlug(slug)
     detalheDocumento(slug).then((doc) => setDocumento(doc))
@@ -180,6 +183,7 @@ export default function App() {
         onUploadText={() => setShowUploadText(true)}
         onExportJSON={handleExportJSON}
         onExportPNG={handleExportPNG}
+        searchVersion={searchVersion}
       />
 
       <div className="flex-1 flex overflow-hidden">
@@ -188,7 +192,11 @@ export default function App() {
           onSelect={handleSelectArtigo}
           searchResults={searchResults}
           searchLoading={searchLoading}
-          onClearSearch={() => setSearchResults(null)}
+          onClearSearch={() => {
+            setSearchResults(null)
+            setSearchQuery('')
+            setSearchVersion(v => v + 1)
+          }}
           activeBlocoId={activeBlocoId}
           onNavigate={handleNavigate}
         />

@@ -1,11 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
 
-export default function Header({ docsList, activeSlug, onSelectDocumento, onSearch, onUploadJSON, onUploadText, onExportJSON, onExportPNG }) {
+export default function Header({ docsList, activeSlug, onSelectDocumento, onSearch, onUploadJSON, onUploadText, onExportJSON, onExportPNG, searchVersion }) {
   const [query, setQuery] = useState('')
   const [showUploadMenu, setShowUploadMenu] = useState(false)
   const [showDocMenu, setShowDocMenu] = useState(false)
   const [showExportMenu, setShowExportMenu] = useState(false)
   const debounceRef = useRef(null)
+
+  useEffect(() => {
+    setQuery('')
+  }, [searchVersion])
 
   useEffect(() => {
     clearTimeout(debounceRef.current)
