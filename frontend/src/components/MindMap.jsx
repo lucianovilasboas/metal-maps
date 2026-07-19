@@ -19,9 +19,16 @@ const ROOT_H = 56
 
 const HANDLE_STYLE = { opacity: 0, pointerEvents: 'none' }
 
+function blurLevelClass(level) {
+  if (!level || level === 0) return ''
+  if (level === 1) return 'opacity-70'
+  if (level === 2) return 'opacity-40'
+  return 'opacity-20'
+}
+
 function DocNode({ data }) {
   return (
-    <div className={`px-6 py-3 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-full shadow-xl border-2 border-blue-400 flex items-center justify-center gap-2 select-none transition-opacity duration-300 ${data.blurred ? 'opacity-20' : ''}`}
+    <div className={`px-6 py-3 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-full shadow-xl border-2 border-blue-400 flex items-center justify-center gap-2 select-none transition-opacity duration-300 ${blurLevelClass(data.blurLevel)}`}
       style={{ width: ROOT_W, height: ROOT_H }}
     >
       <Handle type="source" position={Position.Top} id="top" isConnectable={false} style={HANDLE_STYLE} />
@@ -39,12 +46,10 @@ function ChapterNode({ data }) {
   return (
     <div
       onClick={data.onToggle}
-      className={`px-5 py-2 rounded-full border-2 font-medium transition-all duration-300 cursor-grab active:cursor-grabbing select-none flex items-center justify-center gap-2 ${
-        data.blurred
-          ? 'opacity-20 border-gray-200 text-gray-400'
-          : collapsed
-            ? 'bg-white border-amber-300 text-amber-700 shadow-sm hover:shadow-md hover:border-amber-400'
-            : 'bg-amber-100 border-amber-400 text-amber-900 shadow-md'
+      className={`px-5 py-2 rounded-full border-2 font-medium transition-all duration-300 cursor-grab active:cursor-grabbing select-none flex items-center justify-center gap-2 ${blurLevelClass(data.blurLevel)} ${
+        collapsed
+          ? 'bg-white border-amber-300 text-amber-700 shadow-sm hover:shadow-md hover:border-amber-400'
+          : 'bg-amber-100 border-amber-400 text-amber-900 shadow-md'
       }`}
       style={{ width: NODE_W, height: NODE_H }}
     >
@@ -67,7 +72,7 @@ function ChapterNode({ data }) {
 function ArticleNode({ data }) {
   return (
     <div
-      className={`px-4 py-2 rounded-full border border-gray-200 bg-white text-sm cursor-grab active:cursor-grabbing transition-all duration-300 hover:border-blue-400 hover:shadow-lg hover:bg-blue-50 select-none flex items-center gap-2 ${data.blurred ? 'opacity-20' : ''}`}
+      className={`px-4 py-2 rounded-full border border-gray-200 bg-white text-sm cursor-grab active:cursor-grabbing transition-all duration-300 hover:border-blue-400 hover:shadow-lg hover:bg-blue-50 select-none flex items-center gap-2 ${blurLevelClass(data.blurLevel)}`}
       style={{ width: NODE_W - 20, height: NODE_H - 8, minHeight: 40 }}
     >
       <Handle type="target" position={Position.Top} id="top" isConnectable={false} style={HANDLE_STYLE} />
@@ -354,27 +359,52 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
       }
     }
 
-    let searchSet = null
+    let searchBlur = null
     if (searchResults) {
-      searchSet = new Set(['doc'])
+      searchBlur = new Map()
+      searchBlur.set('doc', 0)
       const resultIds = new Set(searchResults.map(r => r.id))
-      const todosBlocos = acharBlocosRecursivo(documento?.blocos || [])
+
+      const parentMap = {}
+      const todosBlocos = []
+      ;(function percorrer(b) {
+        for (const x of b) {
+          todosBlocos.push(x)
+          if (x.filhos?.length) {
+            for (const f of x.filhos) parentMap[`bloco-${f.id}`] = `bloco-${x.id}`
+            percorrer(x.filhos)
+          }
+        }
+      })(documento?.blocos || [])
+
       for (const bloco of todosBlocos) {
         const blocoId = `bloco-${bloco.id}`
         const artMatches = (bloco.artigos || []).filter(a => resultIds.has(a.id))
-        if (artMatches.length > 0) {
-          searchSet.add(blocoId)
-          artMatches.forEach(a => searchSet.add(`art-${a.id}`))
+        for (const art of artMatches) {
+          searchBlur.set(`art-${art.id}`, 0)
+          let current = blocoId
+          let level = 1
+          while (current && level <= 3) {
+            const existing = searchBlur.get(current)
+            if (existing == null || existing > level) searchBlur.set(current, level)
+            current = parentMap[current]
+            level++
+          }
         }
       }
     }
 
     g.nodes = g.nodes.map((n) => {
-      const blurred = (focusSet && !focusSet.has(n.id)) || (searchSet && !searchSet.has(n.id))
-      if (n.type === 'chapterNode') {
-        return { ...n, data: { ...n.data, onToggle: () => handleToggle(n.id), blurred } }
+      let blurLevel = 0
+      if (focusSet) {
+        blurLevel = focusSet.has(n.id) ? 0 : 3
+      } else if (searchBlur) {
+        blurLevel = searchBlur.has(n.id) ? searchBlur.get(n.id) : 3
       }
-      return { ...n, data: { ...n.data, blurred } }
+      if (n.type === 'chapterNode') {
+        return { ...n, data: { ...n.data, onToggle: () => handleToggle(n.id), blurLevel } }
+      }
+      return { ...n, data: { ...n.data, blurLevel } }
     })
     return g
   }, [documento, collapsed, handleToggle, loadVersion, focoId, mostrarRel, relAtivo, searchResults])
