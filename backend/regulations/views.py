@@ -3,7 +3,6 @@ import re
 
 from decouple import config
 from django.db.models import Q
-from google import genai as gemini_client
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -13,6 +12,10 @@ from .serializers import (
     DocumentoDetailSerializer,
     ArtigoSerializer,
 )
+
+AI_PROVIDER = config('AI_PROVIDER', default='gemini')
+GEMINI_MODEL = config('GEMINI_MODEL', default='gemini-2.5-flash')
+OPENAI_MODEL = config('OPENAI_MODEL', default='gpt-4o')
 
 
 def _reparar_json(texto):
@@ -42,6 +45,33 @@ def _reparar_json(texto):
         except json.JSONDecodeError:
             pass
     raise
+
+
+def _chamar_ia(prompt):
+    provider = config('AI_PROVIDER', default='gemini')
+    if provider == 'openai':
+        from openai import OpenAI
+        api_key = config('OPENAI_API_KEY', default=None)
+        if not api_key:
+            raise RuntimeError('OPENAI_API_KEY não configurada')
+        client = OpenAI(api_key=api_key)
+        response = client.chat.completions.create(
+            model=config('OPENAI_MODEL', default='gpt-4o'),
+            messages=[{'role': 'user', 'content': prompt}],
+            response_format={'type': 'json_object'},
+        )
+        return response.choices[0].message.content
+    else:
+        from google import genai as gemini_client
+        api_key = config('GEMINI_API_KEY', default=None)
+        if not api_key:
+            raise RuntimeError('GEMINI_API_KEY não configurada')
+        client = gemini_client.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model=config('GEMINI_MODEL', default='gemini-2.5-flash'),
+            contents=prompt,
+        )
+        return response.text
 
 
 def _criar_blocos_recursivo(doc, blocos_data, parent=None, artigos_list=None):
@@ -250,13 +280,7 @@ def upload_texto(request):
     if not texto.strip():
         return Response({'erro': 'Texto não pode estar vazio'}, status=400)
 
-    api_key = config('GEMINI_API_KEY', default=None)
-    if not api_key:
-        return Response({'erro': 'GEMINI_API_KEY não configurada'}, status=500)
-
     try:
-        client = gemini_client.Client(api_key=api_key)
-
         prompt = f'''Você é um especialista em estruturação de documentos normativos brasileiros.
 Receba o texto abaixo e converta para JSON seguindo este schema exato:
 
@@ -367,12 +391,8 @@ TEXTO:
 {texto[:40000]}
 '''
 
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-        )
-
-        dados = _reparar_json(response.text)
+        raw = _chamar_ia(prompt)
+        dados = _reparar_json(raw)
 
     except Exception as e:
         return Response({'erro': f'Erro ao processar texto com IA: {str(e)}'}, status=500)
