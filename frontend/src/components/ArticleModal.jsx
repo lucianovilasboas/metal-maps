@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 function highlightText(texto, query) {
   if (!query || !texto) return texto
@@ -17,9 +17,7 @@ function renderTextoComLinks(texto, relacionados, query) {
   if (!texto) return ''
   const relMap = {}
   for (const r of (relacionados || [])) relMap[r.id_code] = r
-
   let html = texto
-
   if (query) {
     const terms = query.trim().split(/\s+/).filter(Boolean)
     if (terms.length) {
@@ -27,7 +25,6 @@ function renderTextoComLinks(texto, relacionados, query) {
       html = html.replace(new RegExp(`(${p})`, 'gi'), '<mark class="bg-yellow-200 rounded px-0.5">$1</mark>')
     }
   }
-
   html = html.replace(/\b([Aa]rt(?:igo)?\.?\s*\d+[º°]?)\b/g, (match) => {
     const num = match.match(/\d+/)?.[0]
     if (!num) return match
@@ -37,28 +34,15 @@ function renderTextoComLinks(texto, relacionados, query) {
     }
     return match
   })
-
   return html
 }
 
-function renderParagrafos(paragrafos, query, relacionados) {
-  if (!paragrafos?.length) return null
-  return paragrafos.map((par) => (
-    <div key={par.id} className="ml-6 mt-3">
-      <p className="text-sm text-gray-700">
-        <span className="font-semibold text-gray-900">{par.rotulo}</span>{' '}
-        <span dangerouslySetInnerHTML={{ __html: renderTextoComLinks(par.texto, relacionados, query) }} />
-      </p>
-      {renderIncisos(par.incisos, query, relacionados)}
-    </div>
-  ))
-}
-
-function renderIncisos(incisos, query, relacionados) {
+function renderIncisos(incisos, query, relacionados, limite) {
   if (!incisos?.length) return null
+  const mostrar = limite ? incisos.slice(0, limite) : incisos
   return (
     <div className="ml-8 mt-2 space-y-1">
-      {incisos.map((inc) => (
+      {mostrar.map((inc) => (
         <div key={inc.id}>
           <p className="text-sm text-gray-600">
             <span className="font-mono text-gray-800 font-medium">{inc.rotulo}</span>{' '}
@@ -103,6 +87,8 @@ function renderItens(itens, query, relacionados) {
 }
 
 export default function ArticleModal({ artigo, onClose, searchQuery, onNavigate, onSelectArtigoPorId }) {
+  const [incisosAbertos, setIncisosAbertos] = useState(false)
+
   useEffect(() => {
     window.__navigateArtigo = (id) => onSelectArtigoPorId(id)
     const handler = (e) => {
@@ -117,6 +103,10 @@ export default function ArticleModal({ artigo, onClose, searchQuery, onNavigate,
 
   const tituloHtml = useMemo(() => highlightText(artigo.titulo, searchQuery), [artigo.titulo, searchQuery])
   const caminho = artigo.caminho || []
+
+  const totalIncisos = (artigo.incisos || []).length
+  const totalParagrafos = (artigo.paragrafos || []).length
+  const limite = incisosAbertos ? undefined : 5
 
   return (
     <div
@@ -161,6 +151,13 @@ export default function ArticleModal({ artigo, onClose, searchQuery, onNavigate,
         </div>
 
         <div className="px-6 py-5 overflow-y-auto flex-1">
+          {(totalIncisos > 0 || totalParagrafos > 0) && (
+            <div className="flex items-center gap-2 mb-3 text-xs text-gray-400">
+              {totalIncisos > 0 && <span className="bg-gray-100 px-2 py-0.5 rounded-full">{totalIncisos} inciso{totalIncisos !== 1 ? 's' : ''}</span>}
+              {totalParagrafos > 0 && <span className="bg-gray-100 px-2 py-0.5 rounded-full">{totalParagrafos} parágrafo{totalParagrafos !== 1 ? 's' : ''}</span>}
+            </div>
+          )}
+
           {artigo.caput && (
             <div className="mb-4 pb-4 border-b border-gray-100">
               <p className="text-sm text-gray-900 font-medium">Caput</p>
@@ -182,13 +179,23 @@ export default function ArticleModal({ artigo, onClose, searchQuery, onNavigate,
 
           {artigo.incisos?.length > 0 && !artigo.paragrafos?.length && (
             <div className="mt-2">
-              {renderIncisos(artigo.incisos, searchQuery, artigo.relacionados)}
+              {renderIncisos(artigo.incisos, searchQuery, artigo.relacionados, limite)}
+              {totalIncisos > 5 && (
+                <button
+                  onClick={() => setIncisosAbertos(!incisosAbertos)}
+                  className="mt-2 text-xs text-blue-600 hover:underline ml-8"
+                >
+                  {incisosAbertos ? `Recolher incisos` : `Mostrar mais ${totalIncisos - 5} incisos`}
+                </button>
+              )}
             </div>
           )}
 
           {artigo.paragrafos?.length > 0 && (
             <div className="mt-2">
-              {renderParagrafos(artigo.paragrafos, searchQuery, artigo.relacionados)}
+              {artigo.paragrafos.map((par) => (
+                <ParagrafoBlock key={par.id} paragrafo={par} query={searchQuery} relacionados={artigo.relacionados} />
+              ))}
             </div>
           )}
 
@@ -214,6 +221,30 @@ export default function ArticleModal({ artigo, onClose, searchQuery, onNavigate,
           Clique fora ou pressione ESC para fechar
         </div>
       </div>
+    </div>
+  )
+}
+
+function ParagrafoBlock({ paragrafo, query, relacionados }) {
+  const [incisosAbertos, setIncisosAbertos] = useState(false)
+  const totalIncisos = (paragrafo.incisos || []).length
+  const limite = incisosAbertos ? undefined : 3
+
+  return (
+    <div className="ml-6 mt-3">
+      <p className="text-sm text-gray-700">
+        <span className="font-semibold text-gray-900">{paragrafo.rotulo}</span>{' '}
+        <span dangerouslySetInnerHTML={{ __html: renderTextoComLinks(paragrafo.texto, relacionados, query) }} />
+      </p>
+      {renderIncisos(paragrafo.incisos, query, relacionados, limite)}
+      {totalIncisos > 3 && (
+        <button
+          onClick={() => setIncisosAbertos(!incisosAbertos)}
+          className="mt-1 text-[11px] text-blue-600 hover:underline ml-8"
+        >
+          {incisosAbertos ? `Recolher` : `Mostrar mais ${totalIncisos - 3} incisos`}
+        </button>
+      )}
     </div>
   )
 }

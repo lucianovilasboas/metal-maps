@@ -73,13 +73,15 @@ function ChapterNode({ data }) {
 }
 
 function ArticleNode({ data }) {
+  const expanded = data.expanded
   return (
     <div
+      onDoubleClick={data.onDoubleClick}
       className={`px-4 py-2 rounded-full text-sm cursor-grab active:cursor-grabbing transition-all duration-300 select-none flex items-center gap-2 ${blurLevelClass(data.blurLevel)} ${
         data.searchActive
           ? 'border-2 border-blue-500 shadow-md shadow-blue-300/40 bg-blue-50 animate-[pulse_5s_cubic-bezier(0.4,0,0.6,1)_infinite]'
           : 'border border-gray-200 bg-white hover:border-blue-400 hover:shadow-lg hover:bg-blue-50'
-      }`}
+      } ${expanded ? 'border-blue-400 shadow-md' : ''}`}
       style={{ width: NODE_W - 20, height: NODE_H - 8, minHeight: 40 }}
     >
       <Handle type="target" position={Position.Top} id="top" isConnectable={false} style={HANDLE_STYLE} />
@@ -92,15 +94,34 @@ function ArticleNode({ data }) {
       <Handle type="source" position={Position.Left} id="left" isConnectable={false} style={HANDLE_STYLE} />
       <span className="text-xs text-blue-500 font-mono shrink-0">{data.id_code}</span>
       <span className="truncate text-gray-700 text-xs">{data.label}</span>
+      {data.incisoCount > 0 && <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full shrink-0">{data.incisoCount}</span>}
     </div>
   )
 }
 
-const nodeTypes = { docNode: DocNode, chapterNode: ChapterNode, articleNode: ArticleNode }
+function IncisoNode({ data }) {
+  const expanded = data.expanded
+  return (
+    <div
+      onClick={data.onClick}
+      className={`px-2 py-0.5 rounded-full text-[10px] cursor-grab active:cursor-grabbing select-none flex items-center justify-center gap-1 border ${blurLevelClass(data.blurLevel)} ${expanded ? 'border-blue-300 bg-blue-50' : 'border-gray-200 bg-white hover:border-blue-300'}`}
+      style={{ width: 48, height: 24, minHeight: 24 }}
+    >
+      <Handle type="target" position={Position.Top} id="top" isConnectable={false} style={HANDLE_STYLE} />
+      <Handle type="target" position={Position.Right} id="right" isConnectable={false} style={HANDLE_STYLE} />
+      <Handle type="target" position={Position.Bottom} id="bottom" isConnectable={false} style={HANDLE_STYLE} />
+      <Handle type="target" position={Position.Left} id="left" isConnectable={false} style={HANDLE_STYLE} />
+      <span className="truncate font-mono text-gray-600">{data.label}</span>
+    </div>
+  )
+}
+
+const nodeTypes = { docNode: DocNode, chapterNode: ChapterNode, articleNode: ArticleNode, incisoNode: IncisoNode }
 
 function nodeDim(node) {
   if (node.id === 'doc') return { w: ROOT_W, h: ROOT_H }
   if (node.type === 'chapterNode') return { w: NODE_W, h: NODE_H }
+  if (node.type === 'incisoNode') return { w: 48, h: 24 }
   return { w: NODE_W - 20, h: NODE_H - 8 }
 }
 
@@ -217,7 +238,7 @@ function radialLayout(documento, collapsed, draggedPositions) {
               id: artId,
               type: 'articleNode',
               position: dp(artId) || { x: (centerX + artR * Math.cos(artAngle)) - artW / 2, y: (centerY + artR * Math.sin(artAngle)) - artH / 2 },
-              data: { label: art.titulo, id_code: art.id_code || art.id },
+            data: { label: art.titulo, id_code: art.id_code || art.id, incisoCount: (art.incisos || []).length + (art.paragrafos || []).length },
             })
 
             const blocoNode = allNodes.find(n => n.id === blocoId)
@@ -306,7 +327,7 @@ function treeLayout(documento, collapsed, draggedPositions, rankdir) {
             id: artId,
             type: 'articleNode',
             position: { x: 0, y: 0 },
-            data: { label: art.titulo, id_code: art.id_code || art.id },
+            data: { label: art.titulo, id_code: art.id_code || art.id, incisoCount: (art.incisos || []).length + (art.paragrafos || []).length },
           })
         }
       }
@@ -413,7 +434,7 @@ function convexLayout(documento, collapsed, draggedPositions) {
           id: artId,
           type: 'articleNode',
           position: dp(artId) || { x: ax - (NODE_W - 20) / 2, y: ay - (NODE_H - 8) / 2 },
-          data: { label: art.titulo, id_code: art.id_code || art.id },
+          data: { label: art.titulo, id_code: art.id_code || art.id, incisoCount: (art.incisos || []).length + (art.paragrafos || []).length },
         })
         allEdges.push({
           id: `e-${blocoId}-${artId}`,
@@ -459,7 +480,7 @@ function forceLayout(documento, collapsed, draggedPositions) {
         const artId = `art-${art.id}`
         const aAngle = Math.random() * 2 * Math.PI
         const aRad = 50 + Math.random() * 100
-        allNodes.push({ id: artId, type: 'articleNode', position: dp(artId) || { x: pos.x + Math.cos(aAngle) * aRad - (NODE_W - 20) / 2, y: pos.y + Math.sin(aAngle) * aRad - (NODE_H - 8) / 2 }, data: { label: art.titulo, id_code: art.id_code || art.id } })
+        allNodes.push({ id: artId, type: 'articleNode', position: dp(artId) || { x: pos.x + Math.cos(aAngle) * aRad - (NODE_W - 20) / 2, y: pos.y + Math.sin(aAngle) * aRad - (NODE_H - 8) / 2 }, data: { label: art.titulo, id_code: art.id_code || art.id, incisoCount: (art.incisos || []).length + (art.paragrafos || []).length } })
         nodeList.push({ id: artId, x: pos.x + Math.cos(aAngle) * aRad, y: pos.y + Math.sin(aAngle) * aRad, vx: 0, vy: 0 })
         allEdges.push({ id: `e-${blocoId}-${artId}`, source: blocoId, target: artId, type: 'smoothstep', style: { stroke: '#d1d5db', strokeWidth: 1.5 } })
       }
@@ -516,6 +537,7 @@ const LAYOUTS = {
 
 export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, containerRef, searchResults, activeBlocoId, layoutType }) {
   const [collapsed, setCollapsed] = useState(new Set())
+  const [expandedArts, setExpandedArts] = useState(new Set())
   const [focoId, setFocoId] = useState(null)
   const [mostrarRel, setMostrarRel] = useState(false)
   const [relAtivo, setRelAtivo] = useState(null)
@@ -604,6 +626,58 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
     const layoutFn = LAYOUTS[layoutType] || LAYOUTS.radial
     const g = layoutFn(documento, collapsed, draggedPositionsRef.current)
 
+    if (expandedArts.size > 0 && documento?.blocos) {
+      const incisoR = 60
+      const artNodeMap = {}
+      g.nodes.forEach(n => { artNodeMap[n.id] = n })
+
+      const todosBlocos = []
+      ;(function p(b) { for (const x of b) { todosBlocos.push(x); if (x.filhos?.length) p(x.filhos) } })(documento.blocos)
+
+      for (const bloco of todosBlocos) {
+        for (const art of (bloco.artigos || [])) {
+          const artId = `art-${art.id}`
+          if (!expandedArts.has(artId)) continue
+          const artNode = artNodeMap[artId]
+          if (!artNode) continue
+
+          const incisos = art.incisos || []
+          const paragrafos = art.paragrafos || []
+          const subs = [...incisos, ...paragrafos.flatMap(p => [p, ...(p.incisos || [])])]
+          if (subs.length === 0) continue
+
+          const cx = artNode.position.x + (NODE_W - 20) / 2
+          const cy = artNode.position.y + (NODE_H - 8) / 2
+          const total = subs.length
+          const arcSpan = Math.PI * 0.6
+          const startAngle = -Math.PI / 2 - arcSpan / 2
+
+          subs.forEach((sub, si) => {
+            const isPar = sub.texto !== undefined && sub.rotulo?.startsWith('§')
+            const subId = isPar ? `par-${sub.id}` : `inc-${sub.id}`
+            const angle = startAngle + (arcSpan * si) / (total - 1 || 1)
+            const sx = cx + incisoR * Math.cos(angle)
+            const sy = cy + incisoR * Math.sin(angle)
+
+            g.nodes.push({
+              id: subId,
+              type: 'incisoNode',
+              position: { x: sx - 24, y: sy - 12 },
+              data: { label: sub.rotulo, parentArticle: artId, subData: sub },
+            })
+
+            g.edges.push({
+              id: `e-${artId}-${subId}`,
+              source: artId,
+              target: subId,
+              type: 'smoothstep',
+              style: { stroke: '#bfdbfe', strokeWidth: 1 },
+            })
+          })
+        }
+      }
+    }
+
     let focusSet = null
     if (focoId) {
       focusSet = new Set(['doc', focoId])
@@ -684,10 +758,13 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
       if (n.type === 'chapterNode') {
         return { ...n, data: { ...n.data, onToggle: () => handleToggle(n.id), blurLevel, searchActive } }
       }
+      if (n.type === 'articleNode') {
+        return { ...n, data: { ...n.data, onDoubleClick: () => {}, blurLevel, searchActive, expanded: expandedArts.has(n.id), incisoCount: (n.data?.incisoCount || 0) } }
+      }
       return { ...n, data: { ...n.data, blurLevel, searchActive } }
     })
     return g
-  }, [documento, collapsed, handleToggle, loadVersion, focoId, mostrarRel, relAtivo, searchResults, layoutType])
+  }, [documento, collapsed, handleToggle, loadVersion, focoId, mostrarRel, relAtivo, searchResults, layoutType, expandedArts])
 
   const [nodes, setNodes, onNodesChange] = useNodesState(graph.nodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(graph.edges)
@@ -746,11 +823,32 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
         }
       }
     }
+    if (node.type === 'incisoNode' && documento) {
+      const parentId = node.data?.parentArticle
+      if (!parentId) return
+      const todosBlocos = acharBlocosRecursivo(documento.blocos || [])
+      for (const bloco of todosBlocos) {
+        for (const art of (bloco.artigos || [])) {
+          if (`art-${art.id}` === parentId) {
+            onSelectArtigo(art)
+            break
+          }
+        }
+      }
+    }
   }, [documento, onSelectArtigo, mostrarRel])
 
   const onNodeDoubleClick = useCallback((_, node) => {
     if (node.type === 'chapterNode') {
       setFocoId((prev) => (prev === node.id ? null : node.id))
+    }
+    if (node.type === 'articleNode') {
+      setExpandedArts((prev) => {
+        const next = new Set(prev)
+        if (next.has(node.id)) next.delete(node.id)
+        else next.add(node.id)
+        return next
+      })
     }
   }, [])
 
