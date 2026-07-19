@@ -10,6 +10,7 @@ import {
   useEdgesState,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import dagre from 'dagre'
 
 const LEVEL_RADII = [180, 280, 380, 480, 580, 680]
 const NODE_W = 200
@@ -248,7 +249,188 @@ function acharBlocosRecursivo(blocos) {
   return result
 }
 
-export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, containerRef, searchResults, activeBlocoId }) {
+function cadaArtigo(blocos, fn) {
+  for (const b of blocos) {
+    for (const a of (b.artigos || [])) fn(a, b)
+    if (b.filhos?.length) cadaArtigo(b.filhos, fn)
+  }
+}
+
+function treeLayout(documento, collapsed, draggedPositions, rankdir) {
+  if (!documento?.blocos) return { nodes: [], edges: [] }
+
+  const dp = (id) => draggedPositions[id] || null
+  const allNodes = []
+  const allEdges = []
+  const g = new dagre.graphlib.Graph()
+  g.setDefaultEdgeLabel(() => ({}))
+  g.setGraph({ rankdir, nodesep: 30, ranksep: 80, marginx: 20, marginy: 20 })
+
+  function addToGraph(parentId, blocos) {
+    for (const bloco of blocos) {
+      const blocoId = `bloco-${bloco.id}`
+      g.setNode(blocoId, { width: NODE_W, height: NODE_H })
+
+      const pNode = parentId === 'doc' || parentId.startsWith('bloco-')
+      if (parentId && pNode) g.setEdge(parentId, blocoId)
+
+      allNodes.push({
+        id: blocoId,
+        type: 'chapterNode',
+        position: { x: 0, y: 0 },
+        data: {
+          label: `${bloco.rotulo} ${bloco.titulo}`.trim(),
+          tipo: bloco.tipo,
+          id_code: bloco.rotulo || bloco.id,
+          collapsed: collapsed.has(blocoId),
+          count: contarArtigosRecursivo(bloco),
+          onToggle: undefined,
+        },
+      })
+
+      if (!collapsed.has(blocoId)) {
+        if (bloco.filhos?.length) {
+          addToGraph(blocoId, bloco.filhos)
+        }
+        for (const art of (bloco.artigos || [])) {
+          const artId = `art-${art.id}`
+          g.setNode(artId, { width: NODE_W - 20, height: NODE_H - 8 })
+          g.setEdge(blocoId, artId)
+          allNodes.push({
+            id: artId,
+            type: 'articleNode',
+            position: { x: 0, y: 0 },
+            data: { label: art.titulo, id_code: art.id_code || art.id },
+          })
+        }
+      }
+    }
+  }
+
+  const todosTopo = documento.blocos
+  g.setNode('doc', { width: ROOT_W, height: ROOT_H })
+  allNodes.push({
+    id: 'doc',
+    type: 'docNode',
+    position: { x: 0, y: 0 },
+    data: { label: documento.titulo },
+  })
+
+  for (const bloco of todosTopo) {
+    g.setEdge('doc', `bloco-${bloco.id}`)
+  }
+  addToGraph('doc', todosTopo)
+
+  dagre.layout(g)
+
+  for (const node of allNodes) {
+    const pos = g.node(node.id)
+    if (pos) {
+      const dw = node.type === 'articleNode' ? (NODE_W - 20) : node.id === 'doc' ? ROOT_W : NODE_W
+      const dh = node.id === 'doc' ? ROOT_H : NODE_H
+      node.position = dp(node.id) || { x: pos.x - dw / 2, y: pos.y - dh / 2 }
+    }
+  }
+
+  for (const edge of g.edges()) {
+    allEdges.push({
+      id: `e-${edge.v}-${edge.w}`,
+      source: edge.v,
+      target: edge.w,
+      type: 'smoothstep',
+      style: { stroke: '#94a3b8', strokeWidth: 1.5 },
+    })
+  }
+
+  return { nodes: allNodes, edges: allEdges }
+}
+
+function convexLayout(documento, collapsed, draggedPositions) {
+  if (!documento?.blocos) return { nodes: [], edges: [] }
+
+  const centerX = 0
+  const centerY = -100
+  const dp = (id) => draggedPositions[id] || null
+  const allNodes = []
+  const allEdges = []
+
+  allNodes.push({
+    id: 'doc',
+    type: 'docNode',
+    position: dp('doc') || { x: centerX - ROOT_W / 2, y: centerY - 120 },
+    data: { label: documento.titulo },
+  })
+
+  const blocos = documento.blocos
+  const total = blocos.length
+  const arcSpan = Math.PI * 0.6
+  const startAngle = -Math.PI / 2 - arcSpan / 2
+  const R = 200
+
+  blocos.forEach((bloco, i) => {
+    const angle = startAngle + (arcSpan * i) / (total - 1 || 1)
+    const bx = centerX + R * Math.cos(angle)
+    const by = centerY + R * Math.sin(angle)
+    const blocoId = `bloco-${bloco.id}`
+
+    allNodes.push({
+      id: blocoId,
+      type: 'chapterNode',
+      position: dp(blocoId) || { x: bx - NODE_W / 2, y: by - NODE_H / 2 },
+      data: {
+        label: `${bloco.rotulo} ${bloco.titulo}`.trim(),
+        tipo: bloco.tipo,
+        id_code: bloco.rotulo || bloco.id,
+        collapsed: collapsed.has(blocoId),
+        count: contarArtigosRecursivo(bloco),
+        onToggle: undefined,
+      },
+    })
+
+    allEdges.push({
+      id: `e-doc-${blocoId}`,
+      source: 'doc',
+      target: blocoId,
+      type: 'smoothstep',
+      style: { stroke: '#94a3b8', strokeWidth: 1.5 },
+    })
+
+    if (!collapsed.has(blocoId)) {
+      const arts = bloco.artigos || []
+      const colWidth = 220
+      const startX = bx - (arts.length - 1) * colWidth / 2
+      arts.forEach((art, aj) => {
+        const artId = `art-${art.id}`
+        const ax = startX + aj * colWidth
+        const ay = by + 100
+        allNodes.push({
+          id: artId,
+          type: 'articleNode',
+          position: dp(artId) || { x: ax - (NODE_W - 20) / 2, y: ay - (NODE_H - 8) / 2 },
+          data: { label: art.titulo, id_code: art.id_code || art.id },
+        })
+        allEdges.push({
+          id: `e-${blocoId}-${artId}`,
+          source: blocoId,
+          target: artId,
+          type: 'smoothstep',
+          style: { stroke: '#d1d5db', strokeWidth: 1.5 },
+        })
+      })
+    }
+  })
+
+  return { nodes: allNodes, edges: allEdges }
+}
+
+const LAYOUTS = {
+  radial: (doc, col, dp) => radialLayout(doc, col, dp),
+  treeVertical: (doc, col, dp) => treeLayout(doc, col, dp, 'TB'),
+  treeHorizontal: (doc, col, dp) => treeLayout(doc, col, dp, 'LR'),
+  convex: (doc, col, dp) => convexLayout(doc, col, dp),
+}
+
+export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, containerRef, searchResults, activeBlocoId, layoutType }) {
   const [collapsed, setCollapsed] = useState(new Set())
   const [focoId, setFocoId] = useState(null)
   const [mostrarRel, setMostrarRel] = useState(false)
@@ -330,7 +512,8 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
   }, [])
 
   const graph = useMemo(() => {
-    const g = radialLayout(documento, collapsed, draggedPositionsRef.current)
+    const layoutFn = LAYOUTS[layoutType] || LAYOUTS.radial
+    const g = layoutFn(documento, collapsed, draggedPositionsRef.current)
 
     let focusSet = null
     if (focoId) {
@@ -415,7 +598,7 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
       return { ...n, data: { ...n.data, blurLevel, searchActive } }
     })
     return g
-  }, [documento, collapsed, handleToggle, loadVersion, focoId, mostrarRel, relAtivo, searchResults])
+  }, [documento, collapsed, handleToggle, loadVersion, focoId, mostrarRel, relAtivo, searchResults, layoutType])
 
   const [nodes, setNodes, onNodesChange] = useNodesState(graph.nodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(graph.edges)

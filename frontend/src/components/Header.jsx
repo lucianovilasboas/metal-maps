@@ -1,10 +1,18 @@
 import { useState, useEffect, useRef } from 'react'
 
-export default function Header({ docsList, activeSlug, onSelectDocumento, onSearch, onUploadJSON, onUploadText, onExportJSON, onExportPNG, searchVersion }) {
+const LAYOUT_OPTIONS = [
+  { value: 'radial', label: 'Radial' },
+  { value: 'treeVertical', label: 'Árvore Vertical' },
+  { value: 'treeHorizontal', label: 'Árvore Horizontal' },
+  { value: 'convex', label: 'Convexo' },
+]
+
+export default function Header({ docsList, activeSlug, onSelectDocumento, onSearch, onUploadJSON, onUploadText, onExportJSON, onExportPNG, searchVersion, layoutType, onSelectLayout }) {
   const [query, setQuery] = useState('')
   const [showUploadMenu, setShowUploadMenu] = useState(false)
   const [showDocMenu, setShowDocMenu] = useState(false)
   const [showExportMenu, setShowExportMenu] = useState(false)
+  const [showLayoutMenu, setShowLayoutMenu] = useState(false)
   const debounceRef = useRef(null)
 
   useEffect(() => {
@@ -22,6 +30,7 @@ export default function Header({ docsList, activeSlug, onSelectDocumento, onSear
   }, [query, onSearch])
 
   const activeDoc = docsList?.find((d) => d.slug === activeSlug)
+  const activeLayout = LAYOUT_OPTIONS.find(l => l.value === layoutType) || LAYOUT_OPTIONS[0]
 
   return (
     <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-4">
@@ -55,6 +64,36 @@ export default function Header({ docsList, activeSlug, onSelectDocumento, onSear
                 >
                   <div className="truncate">{doc.titulo}</div>
                   <div className="text-xs text-gray-400 mt-0.5">{doc.slug}</div>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="relative shrink-0">
+        <button
+          onClick={() => setShowLayoutMenu(!showLayoutMenu)}
+          className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition-colors min-w-[140px]"
+        >
+          <span className="text-xs text-gray-400 shrink-0">Layout:</span>
+          <span className="truncate">{activeLayout.label}</span>
+          <span className="text-xs text-gray-400 shrink-0">{showLayoutMenu ? '▲' : '▼'}</span>
+        </button>
+
+        {showLayoutMenu && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setShowLayoutMenu(false)} />
+            <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 min-w-[180px]">
+              {LAYOUT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => { onSelectLayout(opt.value); setShowLayoutMenu(false) }}
+                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors ${
+                    opt.value === layoutType ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                  }`}
+                >
+                  {opt.label}
                 </button>
               ))}
             </div>

@@ -53,6 +53,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeSlug, setActiveSlug] = useState(() => localStorage.getItem('mm-active-slug'))
   const [searchVersion, setSearchVersion] = useState(0)
+  const [layoutType, setLayoutType] = useState('radial')
   const mindMapRef = useRef(null)
   const queryClient = useQueryClient()
 
@@ -184,6 +185,8 @@ export default function App() {
         onExportJSON={handleExportJSON}
         onExportPNG={handleExportPNG}
         searchVersion={searchVersion}
+        layoutType={layoutType}
+        onSelectLayout={setLayoutType}
       />
 
       <div className="flex-1 flex overflow-hidden">
@@ -210,6 +213,7 @@ export default function App() {
             searchResults={searchResults}
             activeBlocoId={activeBlocoId}
             onNavigate={handleNavigate}
+            layoutType={layoutType}
           />
         </div>
       </div>
