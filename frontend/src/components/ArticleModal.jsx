@@ -13,20 +13,48 @@ function highlightText(texto, query) {
   ).join('')
 }
 
-function renderParagrafos(paragrafos, query) {
+function renderTextoComLinks(texto, relacionados, query) {
+  if (!texto) return ''
+  const relMap = {}
+  for (const r of (relacionados || [])) relMap[r.id_code] = r
+
+  let html = texto
+
+  if (query) {
+    const terms = query.trim().split(/\s+/).filter(Boolean)
+    if (terms.length) {
+      const p = terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+      html = html.replace(new RegExp(`(${p})`, 'gi'), '<mark class="bg-yellow-200 rounded px-0.5">$1</mark>')
+    }
+  }
+
+  html = html.replace(/\b([Aa]rt(?:igo)?\.?\s*\d+[º°]?)\b/g, (match) => {
+    const num = match.match(/\d+/)?.[0]
+    if (!num) return match
+    const id = `art-${num}`
+    if (relMap[id]) {
+      return `<button onclick="window.__navigateArtigo(${relMap[id].id})" class="text-blue-600 hover:underline font-medium inline">${match}</button>`
+    }
+    return match
+  })
+
+  return html
+}
+
+function renderParagrafos(paragrafos, query, relacionados) {
   if (!paragrafos?.length) return null
   return paragrafos.map((par) => (
     <div key={par.id} className="ml-6 mt-3">
       <p className="text-sm text-gray-700">
         <span className="font-semibold text-gray-900">{par.rotulo}</span>{' '}
-        <span dangerouslySetInnerHTML={{ __html: highlightText(par.texto, query) }} />
+        <span dangerouslySetInnerHTML={{ __html: renderTextoComLinks(par.texto, relacionados, query) }} />
       </p>
-      {renderIncisos(par.incisos, query)}
+      {renderIncisos(par.incisos, query, relacionados)}
     </div>
   ))
 }
 
-function renderIncisos(incisos, query) {
+function renderIncisos(incisos, query, relacionados) {
   if (!incisos?.length) return null
   return (
     <div className="ml-8 mt-2 space-y-1">
@@ -34,16 +62,16 @@ function renderIncisos(incisos, query) {
         <div key={inc.id}>
           <p className="text-sm text-gray-600">
             <span className="font-mono text-gray-800 font-medium">{inc.rotulo}</span>{' '}
-            <span dangerouslySetInnerHTML={{ __html: highlightText(inc.texto, query) }} />
+            <span dangerouslySetInnerHTML={{ __html: renderTextoComLinks(inc.texto, relacionados, query) }} />
           </p>
-          {renderAlineas(inc.alineas, query)}
+          {renderAlineas(inc.alineas, query, relacionados)}
         </div>
       ))}
     </div>
   )
 }
 
-function renderAlineas(alineas, query) {
+function renderAlineas(alineas, query, relacionados) {
   if (!alineas?.length) return null
   return (
     <div className="ml-8 mt-1 space-y-1">
@@ -51,23 +79,23 @@ function renderAlineas(alineas, query) {
         <div key={al.id}>
           <p className="text-sm text-gray-600">
             <span className="font-mono text-gray-800">{al.rotulo}</span>{' '}
-            <span dangerouslySetInnerHTML={{ __html: highlightText(al.texto, query) }} />
+            <span dangerouslySetInnerHTML={{ __html: renderTextoComLinks(al.texto, relacionados, query) }} />
           </p>
-          {renderItens(al.itens, query)}
+          {renderItens(al.itens, query, relacionados)}
         </div>
       ))}
     </div>
   )
 }
 
-function renderItens(itens, query) {
+function renderItens(itens, query, relacionados) {
   if (!itens?.length) return null
   return (
     <div className="ml-8 mt-1 space-y-1">
       {itens.map((item) => (
         <p key={item.id} className="text-sm text-gray-600">
           <span className="font-mono text-gray-800">{item.rotulo}</span>{' '}
-          <span dangerouslySetInnerHTML={{ __html: highlightText(item.texto, query) }} />
+          <span dangerouslySetInnerHTML={{ __html: renderTextoComLinks(item.texto, relacionados, query) }} />
         </p>
       ))}
     </div>
@@ -76,12 +104,16 @@ function renderItens(itens, query) {
 
 export default function ArticleModal({ artigo, onClose, searchQuery, onNavigate, onSelectArtigoPorId }) {
   useEffect(() => {
+    window.__navigateArtigo = (id) => onSelectArtigoPorId(id)
     const handler = (e) => {
       if (e.key === 'Escape') onClose()
     }
     document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
-  }, [onClose])
+    return () => {
+      delete window.__navigateArtigo
+      document.removeEventListener('keydown', handler)
+    }
+  }, [onClose, onSelectArtigoPorId])
 
   const tituloHtml = useMemo(() => highlightText(artigo.titulo, searchQuery), [artigo.titulo, searchQuery])
   const caminho = artigo.caminho || []
@@ -134,7 +166,7 @@ export default function ArticleModal({ artigo, onClose, searchQuery, onNavigate,
               <p className="text-sm text-gray-900 font-medium">Caput</p>
               <p
                 className="text-sm text-gray-700 mt-1 leading-relaxed"
-                dangerouslySetInnerHTML={{ __html: highlightText(artigo.caput, searchQuery) }}
+                dangerouslySetInnerHTML={{ __html: renderTextoComLinks(artigo.caput, artigo.relacionados, searchQuery) }}
               />
             </div>
           )}
@@ -143,32 +175,32 @@ export default function ArticleModal({ artigo, onClose, searchQuery, onNavigate,
             <div className="mb-4">
               <p
                 className="text-sm text-gray-700 leading-relaxed whitespace-pre-line"
-                dangerouslySetInnerHTML={{ __html: highlightText(artigo.texto, searchQuery) }}
+                dangerouslySetInnerHTML={{ __html: renderTextoComLinks(artigo.texto, artigo.relacionados, searchQuery) }}
               />
             </div>
           )}
 
           {artigo.incisos?.length > 0 && !artigo.paragrafos?.length && (
             <div className="mt-2">
-              {renderIncisos(artigo.incisos, searchQuery)}
+              {renderIncisos(artigo.incisos, searchQuery, artigo.relacionados)}
             </div>
           )}
 
           {artigo.paragrafos?.length > 0 && (
             <div className="mt-2">
-              {renderParagrafos(artigo.paragrafos, searchQuery)}
+              {renderParagrafos(artigo.paragrafos, searchQuery, artigo.relacionados)}
             </div>
           )}
 
           {artigo.relacionados?.length > 0 && (
             <div className="mt-6 pt-4 border-t border-gray-100">
-              <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Artigos relacionados</p>
-              <div className="flex flex-wrap gap-2">
+              <p className="text-[10px] font-semibold text-gray-500 uppercase mb-2">Artigos relacionados</p>
+              <div className="flex flex-wrap gap-1.5">
                 {artigo.relacionados.map((rel) => (
                   <button
                     key={rel.id}
                     onClick={() => onSelectArtigoPorId(rel.id)}
-                    className="text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-full font-medium transition-colors"
+                    className="text-[11px] text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-full font-medium transition-colors"
                   >
                     {rel.id_code} — {rel.titulo}
                   </button>
