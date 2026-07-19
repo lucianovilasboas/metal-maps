@@ -47,9 +47,11 @@ function ChapterNode({ data }) {
     <div
       onClick={data.onToggle}
       className={`px-5 py-2 rounded-full border-2 font-medium transition-all duration-300 cursor-grab active:cursor-grabbing select-none flex items-center justify-center gap-2 ${blurLevelClass(data.blurLevel)} ${
-        collapsed
-          ? 'bg-white border-amber-300 text-amber-700 shadow-sm hover:shadow-md hover:border-amber-400'
-          : 'bg-amber-100 border-amber-400 text-amber-900 shadow-md'
+        data.searchActive
+          ? 'border-amber-500 bg-amber-50 shadow-md shadow-amber-300/30 animate-[pulse_5s_cubic-bezier(0.4,0,0.6,1)_infinite]'
+          : collapsed
+            ? 'bg-white border-amber-300 text-amber-700 shadow-sm hover:shadow-md hover:border-amber-400'
+            : 'bg-amber-100 border-amber-400 text-amber-900 shadow-md'
       }`}
       style={{ width: NODE_W, height: NODE_H }}
     >
@@ -72,7 +74,11 @@ function ChapterNode({ data }) {
 function ArticleNode({ data }) {
   return (
     <div
-      className={`px-4 py-2 rounded-full border border-gray-200 bg-white text-sm cursor-grab active:cursor-grabbing transition-all duration-300 hover:border-blue-400 hover:shadow-lg hover:bg-blue-50 select-none flex items-center gap-2 ${blurLevelClass(data.blurLevel)}`}
+      className={`px-4 py-2 rounded-full text-sm cursor-grab active:cursor-grabbing transition-all duration-300 select-none flex items-center gap-2 ${blurLevelClass(data.blurLevel)} ${
+        data.searchActive
+          ? 'border-2 border-blue-500 shadow-md shadow-blue-300/40 bg-blue-50 animate-[pulse_5s_cubic-bezier(0.4,0,0.6,1)_infinite]'
+          : 'border border-gray-200 bg-white hover:border-blue-400 hover:shadow-lg hover:bg-blue-50'
+      }`}
       style={{ width: NODE_W - 20, height: NODE_H - 8, minHeight: 40 }}
     >
       <Handle type="target" position={Position.Top} id="top" isConnectable={false} style={HANDLE_STYLE} />
@@ -396,15 +402,17 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
 
     g.nodes = g.nodes.map((n) => {
       let blurLevel = 0
+      let searchActive = false
       if (focusSet) {
         blurLevel = focusSet.has(n.id) ? 0 : 3
       } else if (searchBlur) {
         blurLevel = searchBlur.has(n.id) ? searchBlur.get(n.id) : 3
+        searchActive = blurLevel === 0
       }
       if (n.type === 'chapterNode') {
-        return { ...n, data: { ...n.data, onToggle: () => handleToggle(n.id), blurLevel } }
+        return { ...n, data: { ...n.data, onToggle: () => handleToggle(n.id), blurLevel, searchActive } }
       }
-      return { ...n, data: { ...n.data, blurLevel } }
+      return { ...n, data: { ...n.data, blurLevel, searchActive } }
     })
     return g
   }, [documento, collapsed, handleToggle, loadVersion, focoId, mostrarRel, relAtivo, searchResults])
