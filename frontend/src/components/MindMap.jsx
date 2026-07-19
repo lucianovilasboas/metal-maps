@@ -76,7 +76,7 @@ function ArticleNode({ data }) {
   const expanded = data.expanded
   return (
     <div
-      onDoubleClick={data.onDoubleClick}
+      onContextMenu={(e) => { e.preventDefault(); data.onToggle && data.onToggle() }}
       className={`px-4 py-2 rounded-full text-sm cursor-grab active:cursor-grabbing transition-all duration-300 select-none flex items-center gap-2 ${blurLevelClass(data.blurLevel)} ${
         data.searchActive
           ? 'border-2 border-blue-500 shadow-md shadow-blue-300/40 bg-blue-50 animate-[pulse_5s_cubic-bezier(0.4,0,0.6,1)_infinite]'
@@ -100,18 +100,17 @@ function ArticleNode({ data }) {
 }
 
 function IncisoNode({ data }) {
-  const expanded = data.expanded
   return (
     <div
       onClick={data.onClick}
-      className={`px-2 py-0.5 rounded-full text-[10px] cursor-grab active:cursor-grabbing select-none flex items-center justify-center gap-1 border ${blurLevelClass(data.blurLevel)} ${expanded ? 'border-blue-300 bg-blue-50' : 'border-gray-200 bg-white hover:border-blue-300'}`}
-      style={{ width: 48, height: 24, minHeight: 24 }}
+      className={`px-2 py-0.5 rounded-full text-[10px] cursor-grab active:cursor-grabbing select-none flex items-center justify-center border ${blurLevelClass(data.blurLevel)} border-gray-200 bg-white hover:border-blue-300`}
+      style={{ width: 'auto', minWidth: 36, height: 24, minHeight: 24 }}
     >
       <Handle type="target" position={Position.Top} id="top" isConnectable={false} style={HANDLE_STYLE} />
       <Handle type="target" position={Position.Right} id="right" isConnectable={false} style={HANDLE_STYLE} />
       <Handle type="target" position={Position.Bottom} id="bottom" isConnectable={false} style={HANDLE_STYLE} />
       <Handle type="target" position={Position.Left} id="left" isConnectable={false} style={HANDLE_STYLE} />
-      <span className="truncate font-mono text-gray-600">{data.label}</span>
+      <span className="truncate font-mono text-gray-600">{data.rotulo}</span>
     </div>
   )
 }
@@ -121,7 +120,7 @@ const nodeTypes = { docNode: DocNode, chapterNode: ChapterNode, articleNode: Art
 function nodeDim(node) {
   if (node.id === 'doc') return { w: ROOT_W, h: ROOT_H }
   if (node.type === 'chapterNode') return { w: NODE_W, h: NODE_H }
-  if (node.type === 'incisoNode') return { w: 48, h: 24 }
+  if (node.type === 'incisoNode') return { w: 60, h: 24 }
   return { w: NODE_W - 20, h: NODE_H - 8 }
 }
 
@@ -622,6 +621,15 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
     }, 50)
   }, [])
 
+  const handleToggleArtigo = useCallback((artId) => {
+    setExpandedArts((prev) => {
+      const next = new Set(prev)
+      if (next.has(artId)) next.delete(artId)
+      else next.add(artId)
+      return next
+    })
+  }, [])
+
   const graph = useMemo(() => {
     const layoutFn = LAYOUTS[layoutType] || LAYOUTS.radial
     const g = layoutFn(documento, collapsed, draggedPositionsRef.current)
@@ -662,16 +670,16 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
             g.nodes.push({
               id: subId,
               type: 'incisoNode',
-              position: { x: sx - 24, y: sy - 12 },
-              data: { label: sub.rotulo, parentArticle: artId, subData: sub },
+              position: { x: sx - 30, y: sy - 12 },
+              data: { rotulo: sub.rotulo, parentArticle: artId },
             })
 
             g.edges.push({
               id: `e-${artId}-${subId}`,
               source: artId,
               target: subId,
-              type: 'smoothstep',
-              style: { stroke: '#bfdbfe', strokeWidth: 1 },
+              type: 'bezier',
+              style: { stroke: '#d1d5db', strokeWidth: 1.5 },
             })
           })
         }
@@ -759,7 +767,7 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
         return { ...n, data: { ...n.data, onToggle: () => handleToggle(n.id), blurLevel, searchActive } }
       }
       if (n.type === 'articleNode') {
-        return { ...n, data: { ...n.data, onDoubleClick: () => {}, blurLevel, searchActive, expanded: expandedArts.has(n.id), incisoCount: (n.data?.incisoCount || 0) } }
+        return { ...n, data: { ...n.data, onToggle: () => handleToggleArtigo(n.id), blurLevel, searchActive, expanded: expandedArts.has(n.id), incisoCount: (n.data?.incisoCount || 0) } }
       }
       return { ...n, data: { ...n.data, blurLevel, searchActive } }
     })
@@ -808,7 +816,8 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
     setEdges(updatedEdges)
   }, [setEdges, documento?.slug, collapsed, onSalvarPosicoes])
 
-  const onNodeClick = useCallback((_, node) => {
+  const onNodeClick = useCallback((event, node) => {
+    if (event.button === 2) return
     if (node.type === 'articleNode' && onSelectArtigo && documento) {
       if (mostrarRel) {
         setRelAtivo((prev) => (prev === node.id ? null : node.id))

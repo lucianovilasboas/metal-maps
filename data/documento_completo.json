@@ -1,0 +1,151 @@
+{
+  "slug": "documento-completo",
+  "titulo": "Regulamento de Exemplo (Estrutura Completa)",
+  "ementa": "Dispõe sobre a estrutura completa de um documento normativo para demonstração do sistema.",
+  "preambulo": "O EXEMPLO CORPORATIVO, no uso de suas atribuições, resolve:",
+  "blocos": [
+    {
+      "tipo": "parte",
+      "rotulo": "PARTE I",
+      "titulo": "Parte Geral",
+      "blocos": [
+        {
+          "tipo": "livro",
+          "rotulo": "LIVRO I",
+          "titulo": "Das Disposições Fundamentais",
+          "blocos": [
+            {
+              "tipo": "titulo",
+              "rotulo": "TÍTULO I",
+              "titulo": "Dos Princípios",
+              "blocos": [
+                {
+                  "tipo": "capitulo",
+                  "rotulo": "CAPÍTULO I",
+                  "titulo": "Dos Princípios Gerais",
+                  "blocos": [
+                    {
+                      "tipo": "secao",
+                      "rotulo": "SEÇÃO I",
+                      "titulo": "Da Legalidade",
+                      "blocos": [
+                        {
+                          "tipo": "subsecao",
+                          "rotulo": "SUBSEÇÃO I",
+                          "titulo": "Da Estrita Legalidade",
+                          "artigos": [
+                            {
+                              "id": "art-1",
+                              "rotulo": "Art. 1º",
+                              "titulo": "Princípio da Legalidade",
+                              "caput": "Todas as ações serão pautadas pelo princípio da legalidade.",
+                              "texto": "Art. 1º Todas as ações serão pautadas pelo princípio da legalidade.",
+                              "paragrafos": [
+                                {
+                                  "rotulo": "§ 1º",
+                                  "texto": "Ninguém será obrigado a fazer ou deixar de fazer algo senão em virtude de lei.",
+                                  "ordem": 1,
+                                  "incisos": [
+                                    { "rotulo": "I", "texto": "Direitos fundamentais devem ser protegidos.", "ordem": 1, "alineas": [
+                                      { "rotulo": "a)", "texto": "Garantia de ampla defesa.", "ordem": 1, "itens": [
+                                        { "rotulo": "1.", "texto": "Em processos administrativos.", "ordem": 1 },
+                                        { "rotulo": "2.", "texto": "Em processos judiciais.", "ordem": 2 }
+                                      ]},
+                                      { "rotulo": "b)", "texto": "Garantia de contraditório.", "ordem": 2 }
+                                    ]},
+                                    { "rotulo": "II", "texto": "Atos administrativos devem ser motivados.", "ordem": 2 }
+                                  ]
+                                },
+                                {
+                                  "rotulo": "§ 2º",
+                                  "texto": "A administração pública obedecerá aos princípios constitucionais.",
+                                  "ordem": 2
+                                }
+                              ],
+                              "relacionados": ["art-2"]
+                            },
+                            {
+                              "id": "art-2",
+                              "rotulo": "Art. 2º",
+                              "titulo": "Da Impessoalidade",
+                              "caput": "A atuação será impessoal, visando exclusivamente o interesse público.",
+                              "texto": "Art. 2º A atuação será impessoal.",
+                              "incisos": [
+                                { "rotulo": "I", "texto": "Vedado tratamento diferenciado.", "ordem": 1 },
+                                { "rotulo": "II", "texto": "Publicidade dos atos oficiais.", "ordem": 2 }
+                              ],
+                              "relacionados": []
+                            }
+                          ],
+                          "blocos": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "tipo": "parte",
+      "rotulo": "PARTE II",
+      "titulo": "Parte Especial",
+      "blocos": [
+        {
+          "tipo": "livro",
+          "rotulo": "LIVRO II",
+          "titulo": "Das Normas Disciplinares",
+          "blocos": [
+            {
+              "tipo": "titulo",
+              "rotulo": "TÍTULO ÚNICO",
+              "titulo": "Das Infrações e Penalidades",
+              "blocos": [
+                {
+                  "tipo": "capitulo",
+                  "rotulo": "CAPÍTULO I",
+                  "titulo": "Das Infrações",
+                  "artigos": [
+                    {
+                      "id": "art-3",
+                      "rotulo": "Art. 3º",
+                      "titulo": "Infrações Leves",
+                      "caput": "Constituem infrações leves as condutas que atentem contra a ordem.",
+                      "texto": "Art. 3º Constituem infrações leves.",
+                      "incisos": [
+                        { "rotulo": "I", "texto": "Atraso injustificado.", "ordem": 1 },
+                        { "rotulo": "II", "texto": "Ausência não comunicada.", "ordem": 2 }
+                      ],
+                      "relacionados": ["art-4"]
+                    },
+                    {
+                      "id": "art-4",
+                      "rotulo": "Art. 4º",
+                      "titulo": "Infrações Graves",
+                      "caput": "Constituem infrações graves as condutas que causem dano relevante.",
+                      "texto": "Art. 4º Constituem infrações graves.",
+                      "incisos": [
+                        { "rotulo": "I", "texto": "Dano ao patrimônio.", "ordem": 1 },
+                        { "rotulo": "II", "texto": "Descumprimento reiterado.", "ordem": 2 }
+                      ],
+                      "relacionados": ["art-3"]
+                    }
+                  ],
+                  "blocos": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "disposicoes": [
+    { "tipo": "gerais", "texto": "Este Regulamento aplica-se a todos os membros da organização." },
+    { "tipo": "transitorias", "texto": "Ficam revogadas as disposições em contrário." },
+    { "tipo": "finais", "texto": "Este Regulamento entra em vigor na data de sua publicação." }
+  ]
+}
