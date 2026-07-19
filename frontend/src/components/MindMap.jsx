@@ -535,7 +535,7 @@ const LAYOUTS = {
   force: (doc, col, dp) => forceLayout(doc, col, dp),
 }
 
-export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, containerRef, searchResults, activeBlocoId, layoutType }) {
+export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, containerRef, searchResults, activeBlocoId, layoutType, expandirTodos }) {
   const [collapsed, setCollapsed] = useState(new Set())
   const [expandedArts, setExpandedArts] = useState(new Set())
   const [focoId, setFocoId] = useState(null)
@@ -613,6 +613,14 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
     if (!reactFlowInstanceRef.current) return
     setTimeout(() => reactFlowInstanceRef.current.fitView({ padding: 0.25, duration: 400 }), 100)
   }, [layoutType])
+
+  useEffect(() => {
+    if (!documento?.blocos) return
+    const allIds = new Set()
+    ;(function p(b) { for (const x of b) { allIds.add(`bloco-${x.id}`); if (x.filhos?.length) p(x.filhos) } })(documento.blocos)
+    setCollapsed(expandirTodos ? new Set() : allIds)
+    setTimeout(() => reactFlowInstanceRef.current?.fitView({ padding: 0.25, duration: 400 }), 100)
+  }, [expandirTodos, documento?.slug])
 
   const handleToggle = useCallback((blocoId) => {
     setCollapsed((prev) => {

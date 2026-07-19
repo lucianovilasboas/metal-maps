@@ -54,6 +54,7 @@ export default function App() {
   const [activeSlug, setActiveSlug] = useState(() => localStorage.getItem('mm-active-slug'))
   const [searchVersion, setSearchVersion] = useState(0)
   const [layoutType, setLayoutType] = useState('radial')
+  const [expandirTodos, setExpandirTodos] = useState(false)
   const mindMapRef = useRef(null)
   const queryClient = useQueryClient()
 
@@ -202,6 +203,8 @@ export default function App() {
           }}
           activeBlocoId={activeBlocoId}
           onNavigate={handleNavigate}
+          expandirTodos={expandirTodos}
+          onToggleExpandirTodos={() => setExpandirTodos(v => !v)}
         />
 
         <div className="flex-1 min-w-0 relative">
@@ -214,6 +217,7 @@ export default function App() {
             activeBlocoId={activeBlocoId}
             onNavigate={handleNavigate}
             layoutType={layoutType}
+            expandirTodos={expandirTodos}
           />
         </div>
       </div>

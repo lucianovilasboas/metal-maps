@@ -80,9 +80,8 @@ function BlocoNode({ bloco, onSelect, expandido, ativo, expandirTodos }) {
   )
 }
 
-export default function Sidebar({ documento, onSelect, searchResults, searchLoading, onClearSearch, activeBlocoId, onNavigate }) {
+export default function Sidebar({ documento, onSelect, searchResults, searchLoading, onClearSearch, activeBlocoId, onNavigate, expandirTodos, onToggleExpandirTodos }) {
   const sidebarRef = useRef(null)
-  const [expandirTodos, setExpandirTodos] = useState(false)
 
   const ancestrais = new Set()
   if (activeBlocoId && documento?.blocos) {
@@ -142,7 +141,7 @@ export default function Sidebar({ documento, onSelect, searchResults, searchLoad
               {documento?.titulo || 'Capítulos'}
             </h2>
             <button
-              onClick={() => setExpandirTodos(!expandirTodos)}
+              onClick={onToggleExpandirTodos}
               className="text-[10px] text-blue-600 hover:underline shrink-0"
               title={expandirTodos ? 'Recolher todos' : 'Expandir todos'}
             >
