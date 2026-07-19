@@ -39,9 +39,15 @@ def _criar_artigos(doc, artigos_data):
             except EstruturaBloco.DoesNotExist:
                 pass
         if not bloco:
-            primeiro = EstruturaBloco.objects.filter(documento=doc).first()
-            if primeiro:
-                bloco = primeiro
+            bloco = EstruturaBloco.objects.filter(documento=doc).first()
+        if not bloco:
+            bloco = EstruturaBloco.objects.create(
+                documento=doc,
+                tipo='capitulo',
+                rotulo='CAPITULO UNICO',
+                titulo='Capítulo Único',
+                ordem=1,
+            )
 
         artigo = Artigo.objects.create(
             bloco=bloco,
@@ -186,14 +192,14 @@ def upload_json(request):
     titulo = data.get('titulo', 'Documento sem título')
     slug = data.get('slug', titulo.lower().replace(' ', '-').replace('ç', 'c').replace('ã', 'a').replace('õ', 'o')[:200])
 
-    doc, created = Documento.objects.get_or_create(slug=slug, defaults={'titulo': titulo})
+    doc, created = Documento.objects.get_or_create(slug=slug, defaults={'titulo': titulo, 'preambulo': '', 'ementa': ''})
     if not created:
         doc.titulo = titulo
         doc.save()
         doc.blocos.all().delete()
 
-    doc.ementa = data.get('ementa', '')
-    doc.preambulo = data.get('preambulo', '')
+    doc.ementa = data.get('ementa') or ''
+    doc.preambulo = data.get('preambulo') or ''
     doc.save()
 
     blocos_data = data.get('blocos', data.get('capitulos', []))
@@ -373,7 +379,7 @@ TEXTO:
     artigos_data = dados.get('artigos', [])
     disposicoes_data = dados.get('disposicoes', [])
 
-    doc, created = Documento.objects.get_or_create(slug=slug, defaults={'titulo': titulo})
+    doc, created = Documento.objects.get_or_create(slug=slug, defaults={'titulo': titulo, 'preambulo': '', 'ementa': ''})
     if not created:
         doc.titulo = titulo
         doc.save()
@@ -381,8 +387,8 @@ TEXTO:
         Artigo.objects.filter(bloco__documento=doc).delete()
         Disposicao.objects.filter(documento=doc).delete()
 
-    doc.ementa = dados.get('ementa', '')
-    doc.preambulo = dados.get('preambulo', '')
+    doc.ementa = dados.get('ementa') or ''
+    doc.preambulo = dados.get('preambulo') or ''
     doc.save()
 
     _criar_blocos_recursivo(doc, blocos_data)

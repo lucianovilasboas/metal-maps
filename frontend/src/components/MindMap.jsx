@@ -11,8 +11,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 
-const R1 = 180
-const R2 = 340
+const LEVEL_RADII = [180, 280, 380, 480, 580, 680]
 const NODE_W = 200
 const NODE_H = 48
 const ROOT_W = 220
@@ -108,13 +107,10 @@ function bestHandles(srcNode, tgtNode) {
   return { sourceHandle: 'left', targetHandle: 'right' }
 }
 
-function coletarArtigos(blocos) {
-  const arts = []
-  for (const b of blocos) {
-    arts.push(...(b.artigos || []))
-    if (b.filhos?.length) arts.push(...coletarArtigos(b.filhos))
-  }
-  return arts
+function contarArtigosRecursivo(bloco) {
+  let total = (bloco.artigos || []).length
+  for (const f of (bloco.filhos || [])) total += contarArtigosRecursivo(f)
+  return total
 }
 
 function radialLayout(documento, collapsed, draggedPositions) {
@@ -122,10 +118,6 @@ function radialLayout(documento, collapsed, draggedPositions) {
 
   const centerX = 0
   const centerY = 0
-  const blocos = documento.blocos
-  const total = blocos.length
-  const angleStep = (2 * Math.PI) / total
-
   const allNodes = []
   const allEdges = []
 
@@ -138,101 +130,111 @@ function radialLayout(documento, collapsed, draggedPositions) {
     data: { label: documento.titulo, ementa: documento.ementa },
   })
 
-  blocos.forEach((bloco, ci) => {
-    const blocoId = `bloco-${bloco.id}`
-    const midAngle = -Math.PI / 2 + ci * angleStep + angleStep / 2
+  function layoutRecursivo(blocos, parentId, parentAngle, arcSpan, depth) {
+    if (blocos.length === 0) return
+    const R = LEVEL_RADII[depth] != null ? LEVEL_RADII[depth] : LEVEL_RADII[LEVEL_RADII.length - 1]
+    const count = blocos.length
+    const angleStep = arcSpan / count
 
-    const capX = centerX + R1 * Math.cos(midAngle)
-    const capY = centerY + R1 * Math.sin(midAngle)
+    blocos.forEach((bloco, i) => {
+      const midAngle = parentAngle - arcSpan / 2 + angleStep / 2 + i * angleStep
+      const blocoId = `bloco-${bloco.id}`
+      const bx = centerX + R * Math.cos(midAngle)
+      const by = centerY + R * Math.sin(midAngle)
+      const totalArts = contarArtigosRecursivo(bloco)
 
-    const totalArts = coletarArtigos([bloco]).length
+      allNodes.push({
+        id: blocoId,
+        type: 'chapterNode',
+        position: dp(blocoId) || { x: bx - NODE_W / 2, y: by - NODE_H / 2 },
+        data: {
+          label: `${bloco.rotulo} ${bloco.titulo}`.trim(),
+          tipo: bloco.tipo,
+          id_code: bloco.rotulo || bloco.id,
+          collapsed: collapsed.has(blocoId),
+          count: totalArts,
+          onToggle: undefined,
+        },
+      })
 
-    allNodes.push({
-      id: blocoId,
-      type: 'chapterNode',
-      position: dp(blocoId) || { x: capX - NODE_W / 2, y: capY - NODE_H / 2 },
-      data: {
-        label: `${bloco.rotulo} ${bloco.titulo}`.trim(),
-        tipo: bloco.tipo,
-        id_code: bloco.rotulo || bloco.id,
-        collapsed: collapsed.has(blocoId),
-        count: totalArts,
-        onToggle: undefined,
-      },
-    })
-
-    if (!collapsed.has(blocoId)) {
-      const arts = coletarArtigos([bloco])
-      const artSpan = angleStep * 0.8
-      const artStart = midAngle - artSpan / 2
-
-      arts.forEach((art, aj) => {
-        const artAngle = arts.length > 1
-          ? artStart + (artSpan * aj) / (arts.length - 1)
-          : midAngle
-
-        const artX = centerX + R2 * Math.cos(artAngle)
-        const artY = centerY + R2 * Math.sin(artAngle)
-        const artW = NODE_W - 20
-        const artH = NODE_H - 8
-
-        const artId = `art-${art.id}`
-        allNodes.push({
-          id: artId,
-          type: 'articleNode',
-          position: dp(artId) || { x: artX - artW / 2, y: artY - artH / 2 },
-          data: { label: art.titulo, id_code: art.id_code || art.id },
+      const parentNode = allNodes.find(n => n.id === parentId)
+      if (parentNode) {
+        const blocoNode = allNodes.find(n => n.id === blocoId)
+        const h = bestHandles(parentNode, blocoNode)
+        const edgeStyle = depth <= 1
+          ? { stroke: '#94a3b8', strokeWidth: 2 }
+          : { stroke: '#cbd5e1', strokeWidth: 1.5 }
+        allEdges.push({
+          id: `e-${parentId}-${blocoId}`,
+          source: parentId,
+          target: blocoId,
+          sourceHandle: h.sourceHandle,
+          targetHandle: h.targetHandle,
+          type: 'bezier',
+          style: edgeStyle,
         })
-      })
-    }
-  })
+      }
 
-  const nodeMap = {}
-  allNodes.forEach((n) => { nodeMap[n.id] = n })
+      if (!collapsed.has(blocoId)) {
+        const subBlocos = bloco.filhos || []
+        const arts = bloco.artigos || []
 
-  const todosBlocos = []
-  function achatar(b) { b.forEach(x => { todosBlocos.push(x); if (x.filhos) achatar(x.filhos) }) }
-  achatar(documento.blocos)
+        if (subBlocos.length > 0) {
+          const childArcSpan = Math.min(angleStep * 0.8, Math.PI * 0.6)
+          layoutRecursivo(subBlocos, blocoId, midAngle, childArcSpan, depth + 1)
+        } else if (arts.length > 0) {
+          const artR = LEVEL_RADII[depth + 1] != null ? LEVEL_RADII[depth + 1] : LEVEL_RADII[LEVEL_RADII.length - 1]
+          const artSpan = angleStep * 0.75
+          const artStart = midAngle - artSpan / 2
 
-  todosBlocos.forEach((bloco) => {
-    const blocoId = `bloco-${bloco.id}`
-    const docNode = nodeMap['doc']
-    const blocoNode = nodeMap[blocoId]
-    if (docNode && blocoNode) {
-      const h = bestHandles(docNode, blocoNode)
-      allEdges.push({
-        id: `e-doc-${blocoId}`,
-        source: 'doc',
-        target: blocoId,
-        sourceHandle: h.sourceHandle,
-        targetHandle: h.targetHandle,
-        type: 'bezier',
-        style: { stroke: '#94a3b8', strokeWidth: 2 },
-      })
-    }
+          arts.forEach((art, aj) => {
+            const artAngle = arts.length > 1
+              ? artStart + (artSpan * aj) / (arts.length - 1)
+              : midAngle
+            const artW = NODE_W - 20
+            const artH = NODE_H - 8
+            const artId = `art-${art.id}`
 
-    if (!collapsed.has(blocoId)) {
-      const arts = coletarArtigos([bloco])
-      arts.forEach((art) => {
-        const artId = `art-${art.id}`
-        const artNode = nodeMap[artId]
-        if (blocoNode && artNode) {
-          const h = bestHandles(blocoNode, artNode)
-          allEdges.push({
-            id: `e-${blocoId}-${artId}`,
-            source: blocoId,
-            target: artId,
-            sourceHandle: h.sourceHandle,
-            targetHandle: h.targetHandle,
-            type: 'bezier',
-            style: { stroke: '#d1d5db', strokeWidth: 1.5 },
+            allNodes.push({
+              id: artId,
+              type: 'articleNode',
+              position: dp(artId) || { x: (centerX + artR * Math.cos(artAngle)) - artW / 2, y: (centerY + artR * Math.sin(artAngle)) - artH / 2 },
+              data: { label: art.titulo, id_code: art.id_code || art.id },
+            })
+
+            const blocoNode = allNodes.find(n => n.id === blocoId)
+            const artNode = allNodes.find(n => n.id === artId)
+            if (blocoNode && artNode) {
+              const h = bestHandles(blocoNode, artNode)
+              allEdges.push({
+                id: `e-${blocoId}-${artId}`,
+                source: blocoId,
+                target: artId,
+                sourceHandle: h.sourceHandle,
+                targetHandle: h.targetHandle,
+                type: 'bezier',
+                style: { stroke: '#d1d5db', strokeWidth: 1.5 },
+              })
+            }
           })
         }
-      })
-    }
-  })
+      }
+    })
+  }
+
+  const topLevelArc = 2 * Math.PI * 0.9
+  layoutRecursivo(documento.blocos, 'doc', -Math.PI / 2, topLevelArc, 0)
 
   return { nodes: allNodes, edges: allEdges }
+}
+
+function acharBlocosRecursivo(blocos) {
+  const result = []
+  for (const b of blocos) {
+    result.push(b)
+    if (b.filhos?.length) result.push(...acharBlocosRecursivo(b.filhos))
+  }
+  return result
 }
 
 export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, containerRef, searchResults }) {
@@ -304,14 +306,13 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
 
     let focusSet = null
     if (focoId) {
-      focusSet = new Set([focoId, 'doc'])
+      focusSet = new Set(['doc', focoId])
     }
 
     if (mostrarRel && relAtivo && documento) {
       const nodeMap = {}
       g.nodes.forEach((n) => { nodeMap[n.id] = n })
-      const todosBlocos = []
-      ;(function achatar(b) { b.forEach(x => { todosBlocos.push(x); if (x.filhos) achatar(x.filhos) }) })(documento.blocos || [])
+      const todosBlocos = acharBlocosRecursivo(documento.blocos || [])
       for (const bloco of todosBlocos) {
         for (const art of (bloco.artigos || [])) {
           if (`art-${art.id}` !== relAtivo) continue
@@ -340,8 +341,7 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
     if (searchResults) {
       searchSet = new Set(['doc'])
       const resultIds = new Set(searchResults.map(r => r.id))
-      const todosBlocos = []
-      ;(function achatar(b) { b.forEach(x => { todosBlocos.push(x); if (x.filhos) achatar(x.filhos) }) })(documento?.blocos || [])
+      const todosBlocos = acharBlocosRecursivo(documento?.blocos || [])
       for (const bloco of todosBlocos) {
         const blocoId = `bloco-${bloco.id}`
         const artMatches = (bloco.artigos || []).filter(a => resultIds.has(a.id))
@@ -409,8 +409,7 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
       if (mostrarRel) {
         setRelAtivo((prev) => (prev === node.id ? null : node.id))
       }
-      const todosBlocos = []
-      ;(function achatar(b) { b.forEach(x => { todosBlocos.push(x); if (x.filhos) achatar(x.filhos) }) })(documento.blocos || [])
+      const todosBlocos = acharBlocosRecursivo(documento.blocos || [])
       for (const bloco of todosBlocos) {
         for (const art of (bloco.artigos || [])) {
           if (`art-${art.id}` === node.id) {
@@ -445,9 +444,8 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
 
   useEffect(() => {
     if (!focoId || !reactFlowInstanceRef.current || !documento) return
-    const todosBlocos = []
-    ;(function achatar(b) { b.forEach(x => { todosBlocos.push(x); if (x.filhos) achatar(x.filhos) }) })(documento.blocos || [])
-    const focusIds = new Set([focoId, 'doc'])
+    const todosBlocos = acharBlocosRecursivo(documento.blocos || [])
+    const focusIds = new Set(['doc', focoId])
     for (const bloco of todosBlocos) {
       if (focoId === `bloco-${bloco.id}`) {
         bloco.artigos?.forEach((a) => focusIds.add(`art-${a.id}`))

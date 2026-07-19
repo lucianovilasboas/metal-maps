@@ -31,7 +31,7 @@ class Command(BaseCommand):
             capitulos = doc_data.get("capitulos", [])
 
             doc, created = Documento.objects.get_or_create(
-                slug=slug, defaults={"titulo": titulo}
+                slug=slug, defaults={"titulo": titulo, "preambulo": "", "ementa": ""}
             )
             if not created:
                 doc.titulo = titulo
