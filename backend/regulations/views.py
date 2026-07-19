@@ -34,10 +34,7 @@ def _criar_artigos(doc, artigos_data):
         bloco_ref = art_data.get('bloco_ref', None)
         bloco = None
         if bloco_ref:
-            try:
-                bloco = EstruturaBloco.objects.get(documento=doc, rotulo=bloco_ref)
-            except EstruturaBloco.DoesNotExist:
-                pass
+            bloco = EstruturaBloco.objects.filter(documento=doc, rotulo=bloco_ref).first()
         if not bloco:
             bloco = EstruturaBloco.objects.filter(documento=doc).first()
         if not bloco:
@@ -344,7 +341,9 @@ REGRAS:
 - Extraia parágrafos, incisos, alíneas e itens com seus respectivos textos
 - Preserve o texto COMPLETO de cada dispositivo, sem resumos
 - Relacione artigos que mencionam uns aos outros (use os IDs como "art-1")
-- O campo "bloco_ref" deve referenciar o rotulo do bloco pai (ex: "CAPÍTULO I")
+- O campo "bloco_ref" deve referenciar o rotulo completo do bloco pai,
+  incluindo rotulos de titulos ancestrais para garantir unicidade
+  (ex: "TÍTULO II - CAPÍTULO I" quando houver mais de um CAPÍTULO I)
 - Se não houver título para o artigo, gere um resumo curto
 - O slug deve ser uma versão URL-amigável do título
 - Responda APENAS o JSON, sem explicações ou formatação extra
