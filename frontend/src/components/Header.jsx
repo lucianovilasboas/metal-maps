@@ -15,6 +15,7 @@ export default function Header({ docsList, activeSlug, onSelectDocumento, onSear
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [showLayoutMenu, setShowLayoutMenu] = useState(false)
   const debounceRef = useRef(null)
+  const activeDocRef = useRef(null)
 
   useEffect(() => {
     setQuery('')
@@ -29,6 +30,12 @@ export default function Header({ docsList, activeSlug, onSelectDocumento, onSear
     }
     return () => clearTimeout(debounceRef.current)
   }, [query, onSearch])
+
+  useEffect(() => {
+    if (showDocMenu && activeDocRef.current) {
+      activeDocRef.current.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }
+  }, [showDocMenu])
 
   const activeDoc = docsList?.find((d) => d.slug === activeSlug)
   const activeLayout = LAYOUT_OPTIONS.find(l => l.value === layoutType) || LAYOUT_OPTIONS[0]
@@ -58,6 +65,7 @@ export default function Header({ docsList, activeSlug, onSelectDocumento, onSear
               {docsList?.map((doc) => (
                 <button
                   key={doc.slug}
+                  ref={doc.slug === activeSlug ? activeDocRef : null}
                   onClick={() => { onSelectDocumento(doc.slug); setShowDocMenu(false) }}
                   className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors ${
                     doc.slug === activeSlug ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
