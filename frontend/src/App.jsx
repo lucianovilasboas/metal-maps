@@ -26,7 +26,7 @@ export default function App() {
   const [showUploadText, setShowUploadText] = useState(false)
   const [searchResults, setSearchResults] = useState(null)
   const [searchLoading, setSearchLoading] = useState(false)
-  const [activeSlug, setActiveSlug] = useState(null)
+  const [activeSlug, setActiveSlug] = useState(() => localStorage.getItem('mm-active-slug'))
   const mindMapRef = useRef(null)
   const queryClient = useQueryClient()
 
@@ -43,9 +43,15 @@ export default function App() {
 
   useEffect(() => {
     if (docsList?.length > 0 && !activeSlug) {
-      loadDocumento(docsList[0].slug)
+      const saved = localStorage.getItem('mm-active-slug')
+      const match = saved && docsList.find((d) => d.slug === saved)
+      loadDocumento(match ? saved : docsList[0].slug)
     }
   }, [docsList, activeSlug, loadDocumento])
+
+  useEffect(() => {
+    if (activeSlug) localStorage.setItem('mm-active-slug', activeSlug)
+  }, [activeSlug])
 
   const handleSelectArtigo = useCallback((artigo) => {
     setArtigoModal(artigo)
@@ -68,12 +74,12 @@ export default function App() {
     }
   }, [])
 
-  const handleImportFromJSON = useCallback((data) => {
+  const handleImportFromJSON = useCallback(async (data) => {
     const doc = data.capitulos ? data : data.documentos?.[0]
     if (doc) {
       setDocumento(doc)
       setActiveSlug(doc.slug)
-      queryClient.invalidateQueries({ queryKey: ['documentos'] })
+      await queryClient.refetchQueries({ queryKey: ['documentos'] })
     }
   }, [queryClient])
 
