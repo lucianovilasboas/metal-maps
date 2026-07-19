@@ -26,6 +26,7 @@ export default function App() {
   const [showUploadText, setShowUploadText] = useState(false)
   const [searchResults, setSearchResults] = useState(null)
   const [searchLoading, setSearchLoading] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const [activeSlug, setActiveSlug] = useState(() => localStorage.getItem('mm-active-slug'))
   const mindMapRef = useRef(null)
   const queryClient = useQueryClient()
@@ -58,6 +59,7 @@ export default function App() {
   }, [])
 
   const handleSearch = useCallback(async (query) => {
+    setSearchQuery(query)
     if (!query.trim()) {
       setSearchResults(null)
       return
@@ -160,6 +162,7 @@ export default function App() {
         <ArticleModal
           artigo={artigoModal}
           onClose={() => setArtigoModal(null)}
+          searchQuery={searchQuery}
         />
       )}
 

@@ -236,6 +236,8 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
       hasBackend = true
     }
 
+    const allCapIds = new Set((documento.capitulos || []).map(c => `cap-${c.id}`))
+
     const saved = localStorage.getItem(`mm-state-${documento.slug}`)
     if (saved) {
       try {
@@ -243,14 +245,14 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
         if (!hasBackend && data.positions) {
           draggedPositionsRef.current = data.positions
         }
-        setCollapsed(new Set(data.collapsed || []))
+        setCollapsed(new Set(data.collapsed || allCapIds))
       } catch {
         if (!hasBackend) draggedPositionsRef.current = {}
-        setCollapsed(new Set())
+        setCollapsed(allCapIds)
       }
     } else if (!hasBackend) {
       draggedPositionsRef.current = {}
-      setCollapsed(new Set())
+      setCollapsed(allCapIds)
     }
 
     setLoadVersion((v) => v + 1)

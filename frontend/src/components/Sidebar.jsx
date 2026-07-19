@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 function CapituloNode({ capitulo, onSelect }) {
-  const [aberto, setAberto] = useState(true)
+  const [aberto, setAberto] = useState(false)
 
   return (
     <div className="mb-0.5">

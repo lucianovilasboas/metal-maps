@@ -1,6 +1,19 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 
-export default function ArticleModal({ artigo, onClose }) {
+function highlightText(texto, query) {
+  if (!query || !texto) return texto
+  const terms = query.trim().split(/\s+/).filter(Boolean)
+  if (terms.length === 0) return texto
+  const pattern = terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+  const parts = texto.split(new RegExp(`(${pattern})`, 'gi'))
+  return parts.map((part, i) =>
+    terms.some(t => t.toLowerCase() === part.toLowerCase())
+      ? `<mark class="bg-yellow-200 rounded px-0.5">${part}</mark>`
+      : part
+  ).join('')
+}
+
+export default function ArticleModal({ artigo, onClose, searchQuery }) {
   useEffect(() => {
     const handler = (e) => {
       if (e.key === 'Escape') onClose()
@@ -8,6 +21,9 @@ export default function ArticleModal({ artigo, onClose }) {
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [onClose])
+
+  const tituloHtml = useMemo(() => highlightText(artigo.titulo, searchQuery), [artigo.titulo, searchQuery])
+  const textoHtml = useMemo(() => highlightText(artigo.texto, searchQuery), [artigo.texto, searchQuery])
 
   return (
     <div
@@ -24,7 +40,7 @@ export default function ArticleModal({ artigo, onClose }) {
             <span className="inline-flex items-center px-2.5 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full whitespace-nowrap">
               {artigo.id_code}
             </span>
-            <h2 className="text-lg font-bold text-gray-900 truncate">{artigo.titulo}</h2>
+            <h2 className="text-lg font-bold text-gray-900 truncate" dangerouslySetInnerHTML={{ __html: tituloHtml }} />
           </div>
           <button
             onClick={onClose}
@@ -35,9 +51,10 @@ export default function ArticleModal({ artigo, onClose }) {
         </div>
 
         <div className="px-6 py-5 overflow-y-auto flex-1">
-          <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed whitespace-pre-line">
-            {artigo.texto}
-          </div>
+          <div
+            className="prose prose-sm max-w-none text-gray-700 leading-relaxed whitespace-pre-line"
+            dangerouslySetInnerHTML={{ __html: textoHtml }}
+          />
         </div>
 
         <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 text-xs text-gray-400 shrink-0">
