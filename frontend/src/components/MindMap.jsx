@@ -218,7 +218,7 @@ function radialLayout(documento, collapsed, draggedPositions) {
   return { nodes: allNodes, edges: allEdges }
 }
 
-export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, containerRef }) {
+export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, containerRef, searchResults }) {
   const [collapsed, setCollapsed] = useState(new Set())
   const [focoId, setFocoId] = useState(null)
   const [mostrarRel, setMostrarRel] = useState(false)
@@ -321,15 +321,29 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
       }
     }
 
+    let searchSet = null
+    if (searchResults) {
+      searchSet = new Set(['doc'])
+      const resultIds = new Set(searchResults.map(r => r.id))
+      for (const cap of (documento?.capitulos || [])) {
+        const capId = `cap-${cap.id}`
+        const artMatches = (cap.artigos || []).filter(a => resultIds.has(a.id))
+        if (artMatches.length > 0) {
+          searchSet.add(capId)
+          artMatches.forEach(a => searchSet.add(`art-${a.id}`))
+        }
+      }
+    }
+
     g.nodes = g.nodes.map((n) => {
-      const blurred = focusSet ? !focusSet.has(n.id) : false
+      const blurred = (focusSet && !focusSet.has(n.id)) || (searchSet && !searchSet.has(n.id))
       if (n.type === 'chapterNode') {
         return { ...n, data: { ...n.data, onToggle: () => handleToggle(n.id), blurred } }
       }
       return { ...n, data: { ...n.data, blurred } }
     })
     return g
-  }, [documento, collapsed, handleToggle, loadVersion, focoId, mostrarRel, relAtivo])
+  }, [documento, collapsed, handleToggle, loadVersion, focoId, mostrarRel, relAtivo, searchResults])
 
   const [nodes, setNodes, onNodesChange] = useNodesState(graph.nodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(graph.edges)

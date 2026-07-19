@@ -55,7 +55,6 @@ export default function App() {
 
   const handleSelectArtigo = useCallback((artigo) => {
     setArtigoModal(artigo)
-    setSearchResults(null)
   }, [])
 
   const handleSearch = useCallback(async (query) => {
@@ -152,6 +151,7 @@ export default function App() {
             onSelectArtigo={handleSelectArtigo}
             onSalvarPosicoes={handleSalvarPosicoes}
             containerRef={mindMapRef}
+            searchResults={searchResults}
           />
         </div>
       </div>
