@@ -22,13 +22,13 @@ function contarAncestrais(blocos, targetId, ancestrais) {
   return false
 }
 
-function BlocoNode({ bloco, onSelect, expandido, ativo }) {
-  const [aberto, setAberto] = useState(expandido)
+function BlocoNode({ bloco, onSelect, expandido, ativo, expandirTodos }) {
+  const [aberto, setAberto] = useState(expandido || expandirTodos)
   const ref = useRef(null)
 
   useEffect(() => {
-    setAberto(expandido)
-  }, [expandido])
+    setAberto(expandido || expandirTodos)
+  }, [expandido, expandirTodos])
 
   useEffect(() => {
     if (ativo && ref.current) {
@@ -62,7 +62,7 @@ function BlocoNode({ bloco, onSelect, expandido, ativo }) {
       {aberto && (
         <div className="ml-3 border-l border-gray-100 pl-2">
           {filhos.map((filho) => (
-            <BlocoNode key={filho.id} bloco={filho} onSelect={onSelect} expandido={false} ativo={false} />
+            <BlocoNode key={filho.id} bloco={filho} onSelect={onSelect} expandido={false} ativo={false} expandirTodos={expandirTodos} />
           ))}
           {artigos.map((artigo) => (
             <button
@@ -82,6 +82,7 @@ function BlocoNode({ bloco, onSelect, expandido, ativo }) {
 
 export default function Sidebar({ documento, onSelect, searchResults, searchLoading, onClearSearch, activeBlocoId, onNavigate }) {
   const sidebarRef = useRef(null)
+  const [expandirTodos, setExpandirTodos] = useState(false)
 
   const ancestrais = new Set()
   if (activeBlocoId && documento?.blocos) {
@@ -136,10 +137,17 @@ export default function Sidebar({ documento, onSelect, searchResults, searchLoad
         </div>
       ) : (
         <div className="flex flex-col h-full">
-          <div className="px-4 py-3 border-b border-gray-100">
+          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
             <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
               {documento?.titulo || 'Capítulos'}
             </h2>
+            <button
+              onClick={() => setExpandirTodos(!expandirTodos)}
+              className="text-[10px] text-blue-600 hover:underline shrink-0"
+              title={expandirTodos ? 'Recolher todos' : 'Expandir todos'}
+            >
+              {expandirTodos ? '▴ Recolher' : '▾ Expandir'}
+            </button>
           </div>
           <div className="flex-1 overflow-y-auto p-2">
             {(documento?.blocos || []).map((bloco) => (
@@ -149,6 +157,7 @@ export default function Sidebar({ documento, onSelect, searchResults, searchLoad
                 onSelect={onSelect}
                 expandido={ancestrais.has(`bloco-${bloco.id}`)}
                 ativo={activeBlocoId === `bloco-${bloco.id}`}
+                expandirTodos={expandirTodos}
               />
             ))}
           </div>
