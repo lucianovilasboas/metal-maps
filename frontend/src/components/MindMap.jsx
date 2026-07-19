@@ -125,6 +125,12 @@ function contarArtigosRecursivo(bloco) {
   return total
 }
 
+function coletarArtigosRecursivo(bloco) {
+  const arts = [...(bloco.artigos || [])]
+  for (const f of (bloco.filhos || [])) arts.push(...coletarArtigosRecursivo(f))
+  return arts
+}
+
 function radialLayout(documento, collapsed, draggedPositions) {
   if (!documento?.blocos) return { nodes: [], edges: [] }
 
@@ -396,7 +402,7 @@ function convexLayout(documento, collapsed, draggedPositions) {
     })
 
     if (!collapsed.has(blocoId)) {
-      const arts = bloco.artigos || []
+      const arts = bloco.filhos?.length ? coletarArtigosRecursivo(bloco) : (bloco.artigos || [])
       const colWidth = 220
       const startX = bx - (arts.length - 1) * colWidth / 2
       arts.forEach((art, aj) => {
@@ -423,11 +429,89 @@ function convexLayout(documento, collapsed, draggedPositions) {
   return { nodes: allNodes, edges: allEdges }
 }
 
+function forceLayout(documento, collapsed, draggedPositions) {
+  if (!documento?.blocos) return { nodes: [], edges: [] }
+
+  const dp = (id) => draggedPositions[id] || null
+  const allNodes = []
+  const allEdges = []
+  const centerX = 0
+  const centerY = 0
+  const nodeList = []
+  const todosBlocos = []
+  ;(function p(b) { for (const x of b) { todosBlocos.push(x); if (x.filhos?.length) p(x.filhos) } })(documento.blocos)
+
+  allNodes.push({ id: 'doc', type: 'docNode', position: dp('doc') || { x: centerX - ROOT_W / 2, y: centerY - ROOT_H / 2 }, data: { label: documento.titulo } })
+  nodeList.push({ id: 'doc', x: centerX, y: centerY, vx: 0, vy: 0 })
+
+  for (const bloco of todosBlocos) {
+    const blocoId = `bloco-${bloco.id}`
+    const angle = Math.random() * 2 * Math.PI
+    const rad = 100 + Math.random() * 200
+    allNodes.push({ id: blocoId, type: 'chapterNode', position: dp(blocoId) || { x: centerX + Math.cos(angle) * rad - NODE_W / 2, y: centerY + Math.sin(angle) * rad - NODE_H / 2 }, data: { label: `${bloco.rotulo} ${bloco.titulo}`.trim(), tipo: bloco.tipo, id_code: bloco.rotulo || bloco.id, collapsed: collapsed.has(blocoId), count: contarArtigosRecursivo(bloco), onToggle: undefined } })
+    const pos = dp(blocoId) || allNodes[allNodes.length - 1].position
+    nodeList.push({ id: blocoId, x: pos.x + NODE_W / 2, y: pos.y + NODE_H / 2, vx: 0, vy: 0 })
+    allEdges.push({ id: `e-doc-${blocoId}`, source: 'doc', target: blocoId, type: 'smoothstep', style: { stroke: '#94a3b8', strokeWidth: 1.5 } })
+
+    if (!collapsed.has(blocoId)) {
+      const arts = bloco.filhos?.length ? coletarArtigosRecursivo(bloco) : (bloco.artigos || [])
+      for (const art of arts) {
+        const artId = `art-${art.id}`
+        const aAngle = Math.random() * 2 * Math.PI
+        const aRad = 50 + Math.random() * 100
+        allNodes.push({ id: artId, type: 'articleNode', position: dp(artId) || { x: pos.x + Math.cos(aAngle) * aRad - (NODE_W - 20) / 2, y: pos.y + Math.sin(aAngle) * aRad - (NODE_H - 8) / 2 }, data: { label: art.titulo, id_code: art.id_code || art.id } })
+        nodeList.push({ id: artId, x: pos.x + Math.cos(aAngle) * aRad, y: pos.y + Math.sin(aAngle) * aRad, vx: 0, vy: 0 })
+        allEdges.push({ id: `e-${blocoId}-${artId}`, source: blocoId, target: artId, type: 'smoothstep', style: { stroke: '#d1d5db', strokeWidth: 1.5 } })
+      }
+    }
+  }
+
+  for (let iter = 0; iter < 80; iter++) {
+    const forces = {}
+    for (const n of nodeList) forces[n.id] = { fx: 0, fy: 0 }
+    for (let i = 0; i < nodeList.length; i++) {
+      for (let j = i + 1; j < nodeList.length; j++) {
+        const a = nodeList[i]; const b = nodeList[j]
+        let dx = b.x - a.x; let dy = b.y - a.y; let dist = Math.sqrt(dx * dx + dy * dy) || 1
+        const f = 6000 / (dist * dist)
+        forces[a.id].fx -= f * dx / dist; forces[a.id].fy -= f * dy / dist
+        forces[b.id].fx += f * dx / dist; forces[b.id].fy += f * dy / dist
+      }
+    }
+    for (const edge of allEdges) {
+      const a = nodeList.find(n => n.id === edge.source)
+      const b = nodeList.find(n => n.id === edge.target)
+      if (!a || !b) continue
+      let dx = b.x - a.x; let dy = b.y - a.y; let dist = Math.sqrt(dx * dx + dy * dy) || 1
+      const f = (dist - 150) * 0.01
+      forces[a.id].fx += f * dx / dist; forces[a.id].fy += f * dy / dist
+      forces[b.id].fx -= f * dx / dist; forces[b.id].fy -= f * dy / dist
+    }
+    for (const n of nodeList) {
+      if (n.id === 'doc') continue
+      n.vx = (n.vx + forces[n.id].fx) * 0.85
+      n.vy = (n.vy + forces[n.id].fy) * 0.85
+      n.x += n.vx; n.y += n.vy
+    }
+  }
+
+  for (const n of nodeList) {
+    const nd = allNodes.find(x => x.id === n.id)
+    if (nd && n.id !== 'doc') {
+      const dw = n.id.startsWith('art-') ? NODE_W - 20 : NODE_W
+      const dh = n.id.startsWith('art-') ? NODE_H - 8 : NODE_H
+      nd.position = dp(n.id) || { x: n.x - dw / 2, y: n.y - dh / 2 }
+    }
+  }
+  return { nodes: allNodes, edges: allEdges }
+}
+
 const LAYOUTS = {
   radial: (doc, col, dp) => radialLayout(doc, col, dp),
   treeVertical: (doc, col, dp) => treeLayout(doc, col, dp, 'TB'),
   treeHorizontal: (doc, col, dp) => treeLayout(doc, col, dp, 'LR'),
   convex: (doc, col, dp) => convexLayout(doc, col, dp),
+  force: (doc, col, dp) => forceLayout(doc, col, dp),
 }
 
 export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, containerRef, searchResults, activeBlocoId, layoutType }) {
@@ -498,6 +582,11 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
       }
     }, 100)
   }, [activeBlocoId])
+
+  useEffect(() => {
+    if (!reactFlowInstanceRef.current) return
+    setTimeout(() => reactFlowInstanceRef.current.fitView({ padding: 0.25, duration: 400 }), 100)
+  }, [layoutType])
 
   const handleToggle = useCallback((blocoId) => {
     setCollapsed((prev) => {

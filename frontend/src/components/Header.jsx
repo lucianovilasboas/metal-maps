@@ -5,6 +5,7 @@ const LAYOUT_OPTIONS = [
   { value: 'treeVertical', label: 'Árvore Vertical' },
   { value: 'treeHorizontal', label: 'Árvore Horizontal' },
   { value: 'convex', label: 'Convexo' },
+  { value: 'force', label: 'Força' },
 ]
 
 export default function Header({ docsList, activeSlug, onSelectDocumento, onSearch, onUploadJSON, onUploadText, onExportJSON, onExportPNG, searchVersion, layoutType, onSelectLayout }) {
