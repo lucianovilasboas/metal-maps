@@ -610,6 +610,11 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
     setTimeout(() => reactFlowInstanceRef.current.fitView({ padding: 0.25, duration: 400 }), 100)
   }, [layoutType])
 
+  useEffect(() => {
+    if (!reactFlowInstanceRef.current) return
+    setTimeout(() => reactFlowInstanceRef.current.fitView({ padding: 0.25, duration: 400 }), 100)
+  }, [collapsedBlocos])
+
   const handleToggle = useCallback((blocoId) => {
     onToggleBloco(blocoId)
     setTimeout(() => {
