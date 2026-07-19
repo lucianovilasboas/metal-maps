@@ -163,6 +163,20 @@ npm run build        # gera dist/ para produção via Django
 5. Acessar `http://localhost:5173/` (dev) ou `http://localhost:8000/` (prod)
 6. Upload manual: botão "+ Importar" na interface
 
+## Regra de alterações
+
+Este projeto tem frontend e backend desacoplados (pastas, tech stacks e
+containers distintos). **Toda solicitação de mudança deve ser avaliada
+nos dois lados antes de implementar:**
+
+- Mudança no **frontend** → verificar se a API (backend) precisa de
+  novos endpoints, campos ou alterações nos existentes.
+- Mudança no **backend** → verificar se o contrato da API (resposta,
+  status codes, formato de dados, nomes de rotas) quebra algo no
+  frontend.
+- Qualquer alteração em contrato de API, nomes de rotas, formato de
+  dados ou Headers deve ser comunicada e refletida nos dois lados.
+
 ## Próximos passos sugeridos
 
 - [x] Persistir posições dos nós no localStorage (fase 1)
