@@ -103,14 +103,15 @@ function IncisoNode({ data }) {
   return (
     <div
       onClick={data.onClick}
-      className={`px-2 py-0.5 rounded-full text-[10px] cursor-grab active:cursor-grabbing select-none flex items-center justify-center border ${blurLevelClass(data.blurLevel)} border-gray-200 bg-white hover:border-blue-300`}
-      style={{ width: 'auto', minWidth: 44, height: 24, minHeight: 24 }}
+      className={`px-2 py-0.5 rounded-full text-[10px] cursor-grab active:cursor-grabbing select-none flex items-center border ${blurLevelClass(data.blurLevel)} border-gray-200 bg-white hover:border-blue-300`}
+      style={{ width: 'auto', minWidth: 60, height: 26, minHeight: 26 }}
     >
       <Handle type="target" position={Position.Top} id="top" isConnectable={false} style={HANDLE_STYLE} />
       <Handle type="target" position={Position.Right} id="right" isConnectable={false} style={HANDLE_STYLE} />
       <Handle type="target" position={Position.Bottom} id="bottom" isConnectable={false} style={HANDLE_STYLE} />
       <Handle type="target" position={Position.Left} id="left" isConnectable={false} style={HANDLE_STYLE} />
-      <span className="truncate font-mono text-gray-600">{data.rotulo}</span>
+      <span className="font-mono text-gray-700 font-medium shrink-0">{data.rotulo}</span>
+      {data.preview && <span className="ml-1 truncate text-gray-400 max-w-[120px]">— {data.preview}</span>}
     </div>
   )
 }
@@ -120,7 +121,7 @@ const nodeTypes = { docNode: DocNode, chapterNode: ChapterNode, articleNode: Art
 function nodeDim(node) {
   if (node.id === 'doc') return { w: ROOT_W, h: ROOT_H }
   if (node.type === 'chapterNode') return { w: NODE_W, h: NODE_H }
-  if (node.type === 'incisoNode') return { w: 60, h: 24 }
+  if (node.type === 'incisoNode') return { w: 120, h: 26 }
   return { w: NODE_W - 20, h: NODE_H - 8 }
 }
 
@@ -665,13 +666,14 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
             const isPar = sub.texto !== undefined && sub.rotulo?.startsWith('§')
             const subId = isPar ? `par-${sub.id}` : `inc-${sub.id}`
             const sx = cx
-            const sy = cy + si * 28
+            const sy = cy + si * 30
+            const preview = (sub.texto || '').slice(0, 80)
 
             g.nodes.push({
               id: subId,
               type: 'incisoNode',
-              position: dp(subId) || { x: sx - 30, y: sy - 12 },
-              data: { rotulo: sub.rotulo || sub.id_code || '?', parentArticle: artId },
+              position: dp(subId) || { x: sx - 80, y: sy - 12 },
+              data: { rotulo: sub.rotulo || sub.id_code || '?', preview, parentArticle: artId },
             })
 
             const incNode = g.nodes[g.nodes.length - 1]
