@@ -74,7 +74,7 @@ function renderItens(itens, query) {
   )
 }
 
-export default function ArticleModal({ artigo, onClose, searchQuery, onNavigate }) {
+export default function ArticleModal({ artigo, onClose, searchQuery, onNavigate, onSelectArtigoPorId }) {
   useEffect(() => {
     const handler = (e) => {
       if (e.key === 'Escape') onClose()
@@ -157,6 +157,23 @@ export default function ArticleModal({ artigo, onClose, searchQuery, onNavigate 
           {artigo.paragrafos?.length > 0 && (
             <div className="mt-2">
               {renderParagrafos(artigo.paragrafos, searchQuery)}
+            </div>
+          )}
+
+          {artigo.relacionados?.length > 0 && (
+            <div className="mt-6 pt-4 border-t border-gray-100">
+              <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Artigos relacionados</p>
+              <div className="flex flex-wrap gap-2">
+                {artigo.relacionados.map((rel) => (
+                  <button
+                    key={rel.id}
+                    onClick={() => onSelectArtigoPorId(rel.id)}
+                    className="text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-full font-medium transition-colors"
+                  >
+                    {rel.id_code} — {rel.titulo}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>

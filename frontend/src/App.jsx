@@ -84,6 +84,19 @@ export default function App() {
     setArtigoModal({ ...artigo, caminho })
   }, [documento])
 
+  const handleSelectArtigoPorId = useCallback((artigoId) => {
+    if (!documento?.blocos) return
+    const todos = acharBlocosRecursivo(documento.blocos)
+    for (const bloco of todos) {
+      for (const art of (bloco.artigos || [])) {
+        if (art.id === artigoId) {
+          handleSelectArtigo(art)
+          return
+        }
+      }
+    }
+  }, [documento, handleSelectArtigo])
+
   const handleNavigate = useCallback((blocoId) => {
     setArtigoModal(null)
     setActiveBlocoId(blocoId)
@@ -199,6 +212,7 @@ export default function App() {
           onClose={() => setArtigoModal(null)}
           searchQuery={searchQuery}
           onNavigate={handleNavigate}
+          onSelectArtigoPorId={handleSelectArtigoPorId}
         />
       )}
 
