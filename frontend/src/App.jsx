@@ -79,7 +79,12 @@ export default function App() {
     if (doc) {
       setDocumento(doc)
       setActiveSlug(doc.slug)
-      await queryClient.refetchQueries({ queryKey: ['documentos'] })
+      try {
+        const updatedList = await listarDocumentos()
+        queryClient.setQueryData(['documentos'], updatedList)
+      } catch {
+        // silent
+      }
     }
   }, [queryClient])
 
