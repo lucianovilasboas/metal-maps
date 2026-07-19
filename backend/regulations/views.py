@@ -55,9 +55,13 @@ def _chamar_ia(prompt, provider=None, model=None):
         if not api_key:
             raise RuntimeError('OPENAI_API_KEY não configurada')
         client = OpenAI(api_key=api_key)
+        messages = [
+            {'role': 'system', 'content': 'Você é um assistente que retorna APENAS JSON válido, sem explicações, sem blocos de código, sem texto extra. Use aspas duplas. NÃO use aspas simples.'},
+            {'role': 'user', 'content': prompt},
+        ]
         response = client.chat.completions.create(
-            model=model or 'gpt-4o-mini',
-            messages=[{'role': 'user', 'content': prompt}],
+            model=model or 'gpt-4o',
+            messages=messages,
             response_format={'type': 'json_object'},
         )
         return response.choices[0].message.content

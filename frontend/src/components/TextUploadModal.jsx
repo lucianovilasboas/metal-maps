@@ -3,7 +3,7 @@ import { useState } from 'react'
 const MODEL_OPTIONS = [
   { provider: 'gemini', model: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
   { provider: 'gemini', model: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
-  { provider: 'openai', model: 'gpt-4o-mini',      label: 'GPT-4o Mini' },
+  { provider: 'openai', model: 'gpt-4.1',           label: 'GPT-4.1' },
   { provider: 'openai', model: 'gpt-4o',            label: 'GPT-4o' },
 ]
 
