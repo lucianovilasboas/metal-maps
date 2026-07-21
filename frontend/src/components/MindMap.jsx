@@ -13,7 +13,7 @@ import '@xyflow/react/dist/style.css'
 import dagre from 'dagre'
 
 const LEVEL_RADII = [180, 280, 380, 480, 580, 680]
-const NODE_W = 200
+const NODE_W = 220
 const NODE_H = 48
 const ROOT_W = 220
 const ROOT_H = 56
@@ -29,7 +29,7 @@ function blurLevelClass(level) {
 
 function DocNode({ data }) {
   return (
-    <div className={`px-6 py-3 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-full shadow-xl border-2 border-blue-400 flex items-center justify-center gap-2 select-none transition-opacity duration-300 ${blurLevelClass(data.blurLevel)}`}
+    <div className={`group relative px-6 py-3 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-full shadow-xl border-2 border-blue-400 flex items-center justify-center gap-2 select-none transition-opacity duration-300 ${blurLevelClass(data.blurLevel)}`}
       style={{ width: ROOT_W, height: ROOT_H }}
     >
       <Handle type="source" position={Position.Top} id="top" isConnectable={false} style={HANDLE_STYLE} />
@@ -38,6 +38,11 @@ function DocNode({ data }) {
       <Handle type="source" position={Position.Left} id="left" isConnectable={false} style={HANDLE_STYLE} />
       <span className="text-2xl">📜</span>
       <span className="text-sm font-bold truncate">{data.label}</span>
+      {data.ementa && (
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block z-50 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 whitespace-normal max-w-[300px] shadow-lg pointer-events-none leading-relaxed">
+          {data.ementa}
+        </div>
+      )}
     </div>
   )
 }
@@ -47,7 +52,7 @@ function ChapterNode({ data }) {
   return (
     <div
       onClick={data.onToggle}
-      className={`px-5 py-2 rounded-full border-2 font-medium transition-all duration-300 cursor-grab active:cursor-grabbing select-none flex items-center justify-center gap-2 ${blurLevelClass(data.blurLevel)} ${
+      className={`group relative px-5 py-2 rounded-full border-2 font-medium transition-all duration-300 cursor-grab active:cursor-grabbing select-none flex items-center justify-center gap-2 ${blurLevelClass(data.blurLevel)} ${
         data.searchActive
           ? 'border-amber-500 bg-amber-50 shadow-md shadow-amber-300/30 animate-[pulse_5s_cubic-bezier(0.4,0,0.6,1)_infinite]'
           : collapsed
@@ -68,6 +73,11 @@ function ChapterNode({ data }) {
       <span className="text-[10px] uppercase text-gray-400 shrink-0">{data.tipo}</span>
       <span className="text-xs truncate font-semibold">{data.label}</span>
       <span className="text-xs bg-amber-200 text-amber-700 px-2 py-0.5 rounded-full shrink-0">{data.count}</span>
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block z-50 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg pointer-events-none leading-relaxed whitespace-nowrap">
+        <div className="font-semibold">{data.label}</div>
+        <div className="text-gray-300 text-[10px] uppercase">{data.tipo}</div>
+        <div className="text-gray-300 text-[10px]">{data.count} artigo{data.count !== 1 ? 's' : ''}</div>
+      </div>
     </div>
   )
 }
@@ -77,7 +87,7 @@ function ArticleNode({ data }) {
   return (
     <div
       onContextMenu={(e) => { e.preventDefault(); data.onToggle && data.onToggle() }}
-      className={`px-4 py-2 rounded-full text-sm cursor-grab active:cursor-grabbing transition-all duration-300 select-none flex items-center gap-2 ${blurLevelClass(data.blurLevel)} ${
+      className={`group relative px-4 py-2 rounded-full text-sm cursor-grab active:cursor-grabbing transition-all duration-300 select-none flex items-center gap-2 ${blurLevelClass(data.blurLevel)} ${
         data.searchActive
           ? 'border-2 border-blue-500 shadow-md shadow-blue-300/40 bg-blue-50 animate-[pulse_5s_cubic-bezier(0.4,0,0.6,1)_infinite]'
           : 'border border-gray-200 bg-white hover:border-blue-400 hover:shadow-lg hover:bg-blue-50'
@@ -95,6 +105,12 @@ function ArticleNode({ data }) {
       <span className="text-xs text-blue-500 font-mono shrink-0">{data.id_code}</span>
       <span className="truncate text-gray-700 text-xs">{data.label}</span>
       {data.incisoCount > 0 && <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full shrink-0">{data.incisoCount}</span>}
+      {(data.resumo || data.label) && (
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block z-50 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 whitespace-normal max-w-[300px] shadow-lg pointer-events-none leading-relaxed">
+          <div className="font-semibold mb-0.5">{data.label}</div>
+          {data.resumo && <div className="text-gray-300">{data.resumo}</div>}
+        </div>
+      )}
     </div>
   )
 }
@@ -103,7 +119,7 @@ function IncisoNode({ data }) {
   return (
     <div
       onClick={data.onClick}
-      className={`px-2 py-0.5 rounded-full text-[10px] cursor-grab active:cursor-grabbing select-none flex items-center border ${blurLevelClass(data.blurLevel)} border-gray-200 bg-white hover:border-blue-300`}
+      className={`group relative px-2 py-0.5 rounded-full text-[10px] cursor-grab active:cursor-grabbing select-none flex items-center border ${blurLevelClass(data.blurLevel)} border-gray-200 bg-white hover:border-blue-300`}
       style={{ width: 'auto', minWidth: 60, height: 26, minHeight: 26 }}
     >
       <Handle type="target" position={Position.Top} id="top" isConnectable={false} style={HANDLE_STYLE} />
@@ -112,6 +128,11 @@ function IncisoNode({ data }) {
       <Handle type="target" position={Position.Left} id="left" isConnectable={false} style={HANDLE_STYLE} />
       <span className="font-mono text-gray-700 font-medium shrink-0">{data.rotulo}</span>
       {data.preview && <span className="ml-1 truncate text-gray-400 max-w-[120px]">— {data.preview}</span>}
+      {data.fullText && (
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block z-50 bg-gray-900 text-white text-[10px] rounded-lg px-3 py-2 whitespace-normal max-w-[300px] shadow-lg pointer-events-none leading-relaxed">
+          {data.fullText}
+        </div>
+      )}
     </div>
   )
 }
@@ -238,7 +259,7 @@ function radialLayout(documento, collapsed, draggedPositions) {
               id: artId,
               type: 'articleNode',
               position: dp(artId) || { x: (centerX + artR * Math.cos(artAngle)) - artW / 2, y: (centerY + artR * Math.sin(artAngle)) - artH / 2 },
-            data: { label: art.titulo, id_code: art.id_code || art.id, incisoCount: (art.incisos || []).length + (art.paragrafos || []).length },
+            data: { label: art.titulo, id_code: art.id_code || art.id, incisoCount: (art.incisos || []).length + (art.paragrafos || []).length, resumo: (art.caput || art.texto || '').slice(0, 150) },
             })
 
             const blocoNode = allNodes.find(n => n.id === blocoId)
@@ -327,7 +348,7 @@ function treeLayout(documento, collapsed, draggedPositions, rankdir) {
             id: artId,
             type: 'articleNode',
             position: { x: 0, y: 0 },
-            data: { label: art.titulo, id_code: art.id_code || art.id, incisoCount: (art.incisos || []).length + (art.paragrafos || []).length },
+            data: { label: art.titulo, id_code: art.id_code || art.id, incisoCount: (art.incisos || []).length + (art.paragrafos || []).length, resumo: (art.caput || art.texto || '').slice(0, 150) },
           })
         }
       }
@@ -340,7 +361,7 @@ function treeLayout(documento, collapsed, draggedPositions, rankdir) {
     id: 'doc',
     type: 'docNode',
     position: { x: 0, y: 0 },
-    data: { label: documento.titulo },
+    data: { label: documento.titulo, ementa: documento.ementa },
   })
 
   for (const bloco of todosTopo) {
@@ -385,7 +406,7 @@ function convexLayout(documento, collapsed, draggedPositions) {
     id: 'doc',
     type: 'docNode',
     position: dp('doc') || { x: centerX - ROOT_W / 2, y: centerY - 120 },
-    data: { label: documento.titulo },
+    data: { label: documento.titulo, ementa: documento.ementa },
   })
 
   const blocos = documento.blocos
@@ -434,7 +455,7 @@ function convexLayout(documento, collapsed, draggedPositions) {
           id: artId,
           type: 'articleNode',
           position: dp(artId) || { x: ax - (NODE_W - 20) / 2, y: ay - (NODE_H - 8) / 2 },
-          data: { label: art.titulo, id_code: art.id_code || art.id, incisoCount: (art.incisos || []).length + (art.paragrafos || []).length },
+          data: { label: art.titulo, id_code: art.id_code || art.id, incisoCount: (art.incisos || []).length + (art.paragrafos || []).length, resumo: (art.caput || art.texto || '').slice(0, 150) },
         })
         allEdges.push({
           id: `e-${blocoId}-${artId}`,
@@ -462,7 +483,7 @@ function forceLayout(documento, collapsed, draggedPositions) {
   const todosBlocos = []
   ;(function p(b) { for (const x of b) { todosBlocos.push(x); if (x.filhos?.length) p(x.filhos) } })(documento.blocos)
 
-  allNodes.push({ id: 'doc', type: 'docNode', position: dp('doc') || { x: centerX - ROOT_W / 2, y: centerY - ROOT_H / 2 }, data: { label: documento.titulo } })
+  allNodes.push({ id: 'doc', type: 'docNode', position: dp('doc') || { x: centerX - ROOT_W / 2, y: centerY - ROOT_H / 2 }, data: { label: documento.titulo, ementa: documento.ementa } })
   nodeList.push({ id: 'doc', x: centerX, y: centerY, vx: 0, vy: 0 })
 
   for (const bloco of todosBlocos) {
@@ -480,7 +501,7 @@ function forceLayout(documento, collapsed, draggedPositions) {
         const artId = `art-${art.id}`
         const aAngle = Math.random() * 2 * Math.PI
         const aRad = 50 + Math.random() * 100
-        allNodes.push({ id: artId, type: 'articleNode', position: dp(artId) || { x: pos.x + Math.cos(aAngle) * aRad - (NODE_W - 20) / 2, y: pos.y + Math.sin(aAngle) * aRad - (NODE_H - 8) / 2 }, data: { label: art.titulo, id_code: art.id_code || art.id, incisoCount: (art.incisos || []).length + (art.paragrafos || []).length } })
+        allNodes.push({ id: artId, type: 'articleNode', position: dp(artId) || { x: pos.x + Math.cos(aAngle) * aRad - (NODE_W - 20) / 2, y: pos.y + Math.sin(aAngle) * aRad - (NODE_H - 8) / 2 }, data: { label: art.titulo, id_code: art.id_code || art.id, incisoCount: (art.incisos || []).length + (art.paragrafos || []).length, resumo: (art.caput || art.texto || '').slice(0, 150) } })
         nodeList.push({ id: artId, x: pos.x + Math.cos(aAngle) * aRad, y: pos.y + Math.sin(aAngle) * aRad, vx: 0, vy: 0 })
         allEdges.push({ id: `e-${blocoId}-${artId}`, source: blocoId, target: artId, type: 'smoothstep', style: { stroke: '#d1d5db', strokeWidth: 1.5 } })
       }
@@ -591,12 +612,9 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
   useEffect(() => {
     if (!activeBlocoId) return
     setFocoId(activeBlocoId)
-    setCollapsed((prev) => {
-      if (!prev.has(activeBlocoId)) return prev
-      const next = new Set(prev)
-      next.delete(activeBlocoId)
-      return next
-    })
+    if (collapsedBlocos.has(activeBlocoId)) {
+      onToggleBloco(activeBlocoId)
+    }
     setTimeout(() => {
       const el = document.querySelector(`[data-id="${activeBlocoId}"]`)
       if (el && reactFlowInstanceRef.current) {
@@ -669,7 +687,7 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
               id: subId,
               type: 'incisoNode',
               position: dp(subId) || { x: sx - 80, y: sy - 12 },
-              data: { rotulo: sub.rotulo || sub.id_code || '?', preview, parentArticle: artId },
+              data: { rotulo: sub.rotulo || sub.id_code || '?', preview, parentArticle: artId, fullText: sub.texto || '' },
             })
 
             const incNode = g.nodes[g.nodes.length - 1]

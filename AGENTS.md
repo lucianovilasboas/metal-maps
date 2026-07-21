@@ -5,88 +5,63 @@ com mapa mental interativo.
 
 ## Stack
 
-- **Backend**: Django 6 + DRF + SQLite
-- **Frontend**: Vite + React 19 + Tailwind CSS 4 + React Flow 12 + dagre
-- **IA**: Google Gemini API (para estruturar texto)
-- **Infra**: Docker Compose (Dockerfile pra cada serviço)
+- **Backend**: Django 6 + DRF + SQLite + django-cors-headers + python-decouple
+- **Frontend**: Vite 8 + React 19 + Tailwind CSS 4 + React Flow 12 + dagre
+- **IA**: Gemini (`gemini-2.5-flash`) e OpenAI — configurável via `AI_PROVIDER`
+- **Infra**: Docker Compose com healthcheck no backend
 
 ## Estrutura
 
 ```
 mental-maps/
-├── backend/              # Django API
-│   ├── config/           # settings, urls
-│   ├── regulations/      # models, views, serializers
-│   │   └── management/commands/
-│   │       ├── import_json.py
-│   │       └── seed_default.py
-│   ├── Dockerfile
-│   └── requirements.txt
+├── backend/              # Django API (config/, regulations/)
+│   │                    # models: Documento, EstruturaBloco, Artigo, Paragrafo, Inciso, Alinea, Item, Disposicao
+│   └── regulations/management/commands/  # import_json.py, seed_default.py
 ├── frontend/             # Vite + React
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── Header.jsx         # Barra superior com busca + importar
-│   │   │   ├── Sidebar.jsx        # Árvore de capítulos (esquerda)
-│   │   │   ├── MindMap.jsx        # Mapa mental radial (centro)
-│   │   │   ├── ArticleModal.jsx   # Modal de artigo ao clicar
-│   │   │   ├── UploadModal.jsx    # Upload de JSON
-│   │   │   └── TextUploadModal.jsx# Colar texto com IA
-│   │   ├── api/client.js
-│   │   └── App.jsx
-│   ├── Dockerfile
-│   └── package.json
-├── data/                 # JSONs de exemplo/documentos
-│   ├── regulamento.json               # sample original
-│   ├── regulamento_completo_raw.json  # raw do usuário (9 capítulos)
-│   └── regulamento_padrao.json        # transformado para seed
-├── scripts/
-│   ├── extract_pdf.py     # PDF → texto → IA → JSON
-│   └── transform_json.py  # converte raw → formato do backend
+│   └── src/
+│       ├── components/   # Header, Sidebar, MindMap, ArticleModal, ArticlePanel, UploadModal, TextUploadModal, Tooltip
+│       └── api/client.js # base URL /api/v1, sem auth tokens
+├── data/                 # JSONs de documentos
+├── scripts/              # extract_pdf.py, transform_json.py
 ├── docker-compose.yml
-├── .env                   # SECRET_KEY, GEMINI_API_KEY, DEBUG
-└── AGENTS.md
+└── .env                  # SECRET_KEY, DEBUG, AI_PROVIDER, GEMINI_API_KEY, OPENAI_API_KEY
 ```
 
 ## Comandos
 
-### Docker (principal)
+### Docker
 
 ```bash
-# Subir tudo (build + start)
-docker compose up -d --build
-
-# Ver logs
+docker compose up -d --build    # backend :8039, frontend :5173
 docker compose logs -f
-
-# Parar
 docker compose down
-
-# Executar comando no backend
-docker compose exec backend python manage.py shell
 docker compose exec backend python manage.py seed_default
 docker compose exec backend python manage.py import_json /data/regulamento.json
 ```
+
+O `up` já roda `migrate` + `seed_default` automaticamente. O healthcheck do backend
+em `/api/v1/documentos/` controla a ordem de inicialização (frontend só sobe quando
+backend estiver healthy).
 
 ### Local (sem Docker)
 
 ```bash
 source .venv/bin/activate
-cd backend && python manage.py runserver
+cd backend && python manage.py runserver   # porta 8000
 
-# Extrair PDF (requer GEMINI_API_KEY no .env)
-python ../scripts/extract_pdf.py ../data/meu_regulamento.pdf
-
-# Transformar JSON raw → formato do backend
-python ../scripts/transform_json.py
+python scripts/extract_pdf.py data/meu_regulamento.pdf   # PDF → texto → IA → JSON
+python scripts/transform_json.py                          # raw → formato do backend
 ```
 
 ### Frontend
 
 ```bash
 cd frontend
-npm install          # instalar dependências (dagre incluso)
-npm run dev          # dev server local
-npm run build        # gera dist/ para produção via Django
+npm install
+npm run dev        # :5173, proxy /api → localhost:8000 (sobrescrever com VITE_API_PROXY)
+npm run build      # gera dist/
+npm run lint       # oxlint
+npm run preview    # preview da build
 ```
 
 ## API Endpoints
@@ -94,44 +69,24 @@ npm run build        # gera dist/ para produção via Django
 | Método | Rota | Descrição |
 |--------|------|-----------|
 | GET | `/api/v1/documentos/` | Lista documentos |
-| GET | `/api/v1/documentos/<slug>/` | Detalhe com capítulos e artigos |
+| GET | `/api/v1/documentos/<slug>/` | Detalhe com árvore de blocos e artigos |
+| DELETE | `/api/v1/documentos/<slug>/delete/` | Exclui documento |
 | POST | `/api/v1/documentos/upload-json/` | Importa JSON |
+| POST | `/api/v1/documentos/upload-texto/` | Cola texto → IA estrutura → importa |
+| PATCH | `/api/v1/documentos/<slug>/posicoes/` | Persiste posições dos nós no backend |
 | GET | `/api/v1/artigos/<id>/` | Detalhe do artigo |
-| GET | `/api/v1/buscar/?q=...` | Busca textual |
+| GET | `/api/v1/buscar/?q=...&slug=...` | Busca textual (slug opcional) |
 
-## Layout da Interface
+## Modelo de dados
 
-```
-┌──────────────────────────────────────────────────────┐
-│ Header (logo + busca + botão Importar)               │
-├────────────┬─────────────────────────────────────────┤
-│ Sidebar    │  Mapa Mental (React Flow)               │
-│ (árvore    │  - Raiz (documento) no centro           │
-│  de        │  - Capítulos irradiando em círculo      │
-│  capítulos)│  - Artigos nas pontas                   │
-│            │  - Nós em elipse (pill shape)            │
-│            │  - Arestas bezier com 4 handles (T,R,B,L)│
-│            │  - Arrastável com persistência de posição│
-│            │  - Clique em artigo → modal             │
-│            │  - Clique em capítulo → expand/colapsa  │
-└────────────┴─────────────────────────────────────────┘
-```
+Hierarquia: **Documento → EstruturaBloco → Artigo → Paragrafo → Inciso → Alinea → Item**
 
-## Funcionalidades Implementadas
+`EstruturaBloco` é uma árvore recursiva (self-FK) com 6 tipos: `parte`, `livro`,
+`titulo`, `capitulo`, `secao`, `subsecao`. O upload JSON aceita a chave `"capitulos"`
+em todos os pontos de entrada (`import_json`, `seed_default`, `upload-json`). A view
+`upload_json` também aceita `"blocos"` como alternativa.
 
-- **Mapa mental radial**: layout customizado (sem dagre), raiz central, nós equidistantes
-- **Nós em elipse**: `rounded-full` com padding, gradientes e sombras
-- **Handles nos 4 lados**: Top, Right, Bottom, Left — aresta escolhe o lado mais próximo
-- **Arestas dinâmicas**: recalcula handles ao arrastar nó (onNodeDragStop)
-- **Drag com persistência**: posição salva em ref, mantida ao expandir/colapsar
-- **Collapse/expand**: clique no capítulo alterna visibilidade dos artigos
-- **Modal de artigo**: popup centralizado com ESC para fechar
-- **Seed automático**: `seed_default` importa `regulamento_padrao.json` se DB vazio
-- **Upload JSON**: drag-and-drop na interface
-- **Busca textual**: full-text search nos artigos
-- **JSON transform**: `scripts/transform_json.py` converte raw → formato do backend
-
-## Formato JSON esperado (upload / import_json)
+### Formato JSON esperado (upload / import_json)
 
 ```json
 {
@@ -154,39 +109,35 @@ npm run build        # gera dist/ para produção via Django
 }
 ```
 
-## Fluxo de trabalho
+## Ambiente (.env)
 
-1. Adicionar PDF em `data/`
-2. (opcional) Extrair com IA: `python scripts/extract_pdf.py data/doc.pdf`
-3. Transformar se necessário: `python scripts/transform_json.py`
-4. Subir com Docker: `docker compose up -d --build`
-5. Acessar `http://localhost:5173/` (dev) ou `http://localhost:8000/` (prod)
-6. Upload manual: botão "+ Importar" na interface
+```
+SECRET_KEY=<valor>
+DEBUG=True
+AI_PROVIDER=gemini          # ou openai
+GEMINI_API_KEY=<chave>
+OPENAI_API_KEY=<chave>
+```
 
 ## Regra de alterações
 
-Este projeto tem frontend e backend desacoplados (pastas, tech stacks e
-containers distintos). **Toda solicitação de mudança deve ser avaliada
-nos dois lados antes de implementar:**
+Frontend e backend são desacoplados (pastas, tech stacks e containers distintos).
+**Toda mudança deve ser avaliada nos dois lados:**
 
-- Mudança no **frontend** → verificar se a API (backend) precisa de
-  novos endpoints, campos ou alterações nos existentes.
-- Mudança no **backend** → verificar se o contrato da API (resposta,
-  status codes, formato de dados, nomes de rotas) quebra algo no
-  frontend.
-- Qualquer alteração em contrato de API, nomes de rotas, formato de
-  dados ou Headers deve ser comunicada e refletida nos dois lados.
+- Mudança no **frontend** → verificar se a API precisa de novos endpoints ou campos.
+- Mudança no **backend** → verificar se o contrato da API quebra algo no frontend.
+- Alterações em contrato de API, nomes de rotas, formato de dados ou headers devem
+  ser refletidas nos dois lados.
 
-## Próximos passos sugeridos
+## Observações
 
-- [x] Persistir posições dos nós no localStorage (fase 1)
-- [x] Persistir posições dos nós no backend (fase 2)
-- [x] Suporte a múltiplos documentos simultâneos (fase 3)
-- [x] Modo foco — clique duplo no capítulo centraliza e destaca (fase 4)
-- [x] Artigos relacionados — toggle R + clique no artigo mostra arestas tracejadas (fase 5)
-- [x] Exportar mapa como imagem e JSON (fase 6)
-- [ ] Persistir posições dos nós no backend
-- [ ] Suporte a múltiplos documentos simultâneos
-- [ ] Temas dark/light
-- [ ] Exportar mapa como imagem
-- [ ] Modo foco (selecionar capítulo e centralizar)
+- **Zero testes** no projeto — não existe `tests.py` nem `test*.py` em lugar nenhum.
+- Linter do frontend é **oxlint** (não ESLint). Comando: `npm run lint`.
+- Docker expõe backend na porta **8039** (host), não 8000.
+- Tailwind CSS 4 usa plugin Vite (`@tailwindcss/vite`) — não existe `tailwind.config.js`.
+- `INSTALLED_APPS` é mínimo: `django.contrib.auth`, `.contenttypes`, `.staticfiles`,
+  `rest_framework`, `corsheaders`, `regulations`. Sem admin, sessions, messages.
+- `CORS_ALLOW_ALL_ORIGINS = True` em dev.
+- Dagre **é usado** no `MindMap.jsx` para layout do grafo de artigos.
+- Dependências notáveis do frontend: `@tanstack/react-query`, `framer-motion`,
+  `html-to-image` (export PNG), `react-dropzone`.

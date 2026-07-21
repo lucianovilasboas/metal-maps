@@ -7,7 +7,9 @@ import MindMap from './components/MindMap'
 import ArticleModal from './components/ArticleModal'
 import UploadModal from './components/UploadModal'
 import TextUploadModal from './components/TextUploadModal'
-import { listarDocumentos, detalheDocumento, buscar, salvarPosicoes } from './api/client'
+import { listarDocumentos, detalheDocumento, buscar, salvarPosicoes, deletarDocumento, atualizarDocumento } from './api/client'
+
+function clamp(v, min, max) { return Math.min(Math.max(v, min), max) }
 
 function downloadFile(content, filename, type = 'application/json') {
   const blob = new Blob([content], { type })
@@ -34,7 +36,15 @@ function encontrarCaminho(blocos, artigoId) {
     for (const art of (bloco.artigos || [])) {
       if (art.id === artigoId) {
         const caminho = []
-        caminho.push({ id: `bloco-${bloco.id}`, rotulo: `${bloco.rotulo} ${bloco.titulo}`.trim(), tipo: 'bloco' })
+        let current = bloco
+        while (current) {
+          caminho.unshift({
+            id: `bloco-${current.id}`,
+            rotulo: `${current.rotulo} ${current.titulo}`.trim(),
+            tipo: 'bloco',
+          })
+          current = todos.find(b => (b.filhos || []).some(f => f.id === current.id)) || null
+        }
         return caminho
       }
     }
@@ -58,6 +68,42 @@ export default function App() {
   const [collapsedBlocos, setCollapsedBlocos] = useState(new Set())
   const mindMapRef = useRef(null)
   const queryClient = useQueryClient()
+
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = localStorage.getItem('mm-sidebar-width')
+    return saved ? clamp(parseInt(saved, 10), 200, 500) : 240
+  })
+  const draggingSidebar = useRef(false)
+
+  const handleResizeStart = useCallback((e) => {
+    e.preventDefault()
+    draggingSidebar.current = true
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }, [])
+
+  useEffect(() => {
+    const move = (e) => {
+      if (!draggingSidebar.current) return
+      setSidebarWidth(clamp(e.clientX - 20, 200, 500))
+    }
+    const up = () => {
+      if (!draggingSidebar.current) return
+      draggingSidebar.current = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.addEventListener('mousemove', move)
+    document.addEventListener('mouseup', up)
+    return () => {
+      document.removeEventListener('mousemove', move)
+      document.removeEventListener('mouseup', up)
+    }
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem('mm-sidebar-width', sidebarWidth)
+  }, [sidebarWidth])
 
   const { data: docsList } = useQuery({
     queryKey: ['documentos'],
@@ -219,6 +265,41 @@ export default function App() {
     }
   }, [documento])
 
+  const handleDeletarDocumento = useCallback(async (slug) => {
+    try {
+      await deletarDocumento(slug)
+    } catch {
+      // silent
+    }
+    const updatedList = await listarDocumentos().catch(() => [])
+    queryClient.setQueryData(['documentos'], updatedList)
+    localStorage.removeItem(`mm-state-${slug}`)
+    if (slug === activeSlug) {
+      const next = updatedList.length > 0 ? updatedList[0] : null
+      if (next) {
+        setActiveSlug(next.slug)
+        detalheDocumento(next.slug).then((doc) => setDocumento(doc))
+      } else {
+        setActiveSlug(null)
+        setDocumento(null)
+        setArtigoModal(null)
+      }
+    }
+  }, [activeSlug, queryClient])
+
+  const handleAtualizarDocumento = useCallback(async (slug, data) => {
+    try {
+      await atualizarDocumento(slug, data)
+    } catch {
+      // silent
+    }
+    const updatedList = await listarDocumentos().catch(() => [])
+    queryClient.setQueryData(['documentos'], updatedList)
+    if (slug === activeSlug && documento) {
+      setDocumento({ ...documento, titulo: data.titulo })
+    }
+  }, [activeSlug, documento, queryClient])
+
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       <Header
@@ -230,6 +311,8 @@ export default function App() {
         onUploadText={() => setShowUploadText(true)}
         onExportJSON={handleExportJSON}
         onExportPNG={handleExportPNG}
+        onDeleteDocumento={handleDeletarDocumento}
+        onAtualizarDocumento={handleAtualizarDocumento}
         searchVersion={searchVersion}
         layoutType={layoutType}
         onSelectLayout={setLayoutType}
@@ -252,6 +335,12 @@ export default function App() {
           onToggleExpandirTodos={() => setExpandirTodos(v => !v)}
           collapsedBlocos={collapsedBlocos}
           onToggleBloco={handleToggleBloco}
+          width={sidebarWidth}
+        />
+
+        <div
+          className="w-1 bg-gray-200 hover:bg-blue-400 cursor-col-resize shrink-0 transition-colors"
+          onMouseDown={handleResizeStart}
         />
 
         <div className="flex-1 min-w-0 relative">

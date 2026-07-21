@@ -193,6 +193,30 @@ def detalhe_documento(request, slug):
     return Response(DocumentoDetailSerializer(doc).data)
 
 
+@api_view(['DELETE'])
+def excluir_documento(request, slug):
+    try:
+        doc = Documento.objects.get(slug=slug)
+    except Documento.DoesNotExist:
+        return Response({'erro': 'Documento não encontrado'}, status=404)
+    doc.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['PATCH'])
+def atualizar_documento(request, slug):
+    try:
+        doc = Documento.objects.get(slug=slug)
+    except Documento.DoesNotExist:
+        return Response({'erro': 'Documento não encontrado'}, status=404)
+    titulo = request.data.get('titulo', '').strip()
+    if not titulo:
+        return Response({'erro': 'Título é obrigatório'}, status=400)
+    doc.titulo = titulo
+    doc.save()
+    return Response(DocumentoListSerializer(doc).data)
+
+
 @api_view(['GET'])
 def detalhe_artigo(request, pk):
     try:
@@ -419,7 +443,7 @@ TEXTO:
 
     doc.ementa = dados.get('ementa') or ''
     doc.preambulo = dados.get('preambulo') or ''
-    doc.titulo = dados.get('titulo') or titulo or 'Documento importado'
+    doc.titulo = request.data.get('titulo', '').strip() or dados.get('titulo') or 'Documento importado'
     doc.save()
 
     artigos_list = []

@@ -1,7 +1,7 @@
-import { useRef } from 'react'
+import { useState, useCallback, useRef } from 'react'
+import Tooltip from './Tooltip'
 
-function BlocoNode({ bloco, onSelect, ativo, collapsedBlocos, onToggleBloco }) {
-  const ref = useRef(null)
+function BlocoNode({ bloco, onSelect, ativo, collapsedBlocos, onToggleBloco, showTooltip, moveTooltip, hideTooltip }) {
   const blocoId = `bloco-${bloco.id}`
   const aberto = !collapsedBlocos.has(blocoId)
 
@@ -10,17 +10,27 @@ function BlocoNode({ bloco, onSelect, ativo, collapsedBlocos, onToggleBloco }) {
   const hasChildren = filhos.length > 0 || artigos.length > 0
 
   return (
-    <div className="mb-0.5" ref={ref}>
+    <div className="mb-0.5">
       <button
         onClick={() => onToggleBloco(blocoId)}
-        className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors ${
+        onMouseEnter={(e) => showTooltip(
+          <div>
+            <div className="font-semibold mb-0.5">{bloco.rotulo} {bloco.titulo}</div>
+            <div className="text-gray-300 text-[10px] uppercase">{bloco.tipo}</div>
+            {hasChildren && <div className="text-gray-300 text-[10px]">{artigos.length} artigos, {filhos.length} sub-blocos</div>}
+          </div>,
+          e
+        )}
+        onMouseMove={(e) => moveTooltip(e)}
+        onMouseLeave={hideTooltip}
+        className={`w-full flex items-center gap-2 px-3 py-1 text-xs rounded-md transition-colors ${
           ativo
             ? 'bg-blue-50 text-blue-700 font-medium'
             : 'text-gray-700 hover:bg-gray-100 font-medium'
         }`}
       >
         {hasChildren && (
-          <span className="text-xs text-gray-400 w-4 shrink-0">
+          <span className="text-[10px] text-gray-400 w-4 shrink-0">
             {aberto ? '▼' : '▶'}
           </span>
         )}
@@ -31,15 +41,24 @@ function BlocoNode({ bloco, onSelect, ativo, collapsedBlocos, onToggleBloco }) {
       {aberto && (
         <div className="ml-3 border-l border-gray-100 pl-2">
           {filhos.map((filho) => (
-            <BlocoNode key={filho.id} bloco={filho} onSelect={onSelect} ativo={false} collapsedBlocos={collapsedBlocos} onToggleBloco={onToggleBloco} />
+            <BlocoNode key={filho.id} bloco={filho} onSelect={onSelect} ativo={false} collapsedBlocos={collapsedBlocos} onToggleBloco={onToggleBloco} showTooltip={showTooltip} moveTooltip={moveTooltip} hideTooltip={hideTooltip} />
           ))}
           {artigos.map((artigo) => (
             <button
               key={artigo.id}
               onClick={() => onSelect(artigo)}
-              className="w-full flex items-center gap-2 pl-3 pr-3 py-1 text-sm text-gray-600 hover:bg-gray-50 rounded-md transition-colors"
+              onMouseEnter={(e) => showTooltip(
+                <div>
+                  <div className="font-semibold mb-0.5">{artigo.titulo}</div>
+                  <div className="text-gray-300 text-[10px]">{(artigo.caput || artigo.texto || '').slice(0, 200)}</div>
+                </div>,
+                e
+              )}
+              onMouseMove={(e) => moveTooltip(e)}
+              onMouseLeave={hideTooltip}
+              className="w-full flex items-center gap-2 pl-3 pr-3 py-0.5 text-xs text-gray-600 hover:bg-gray-50 rounded-md transition-colors"
             >
-              <span className="text-xs text-blue-500 w-8 shrink-0 font-mono">{artigo.id_code}</span>
+              <span className="text-[10px] text-blue-500 w-8 shrink-0 font-mono">{artigo.id_code}</span>
               <span className="truncate">{artigo.titulo}</span>
             </button>
           ))}
@@ -49,11 +68,28 @@ function BlocoNode({ bloco, onSelect, ativo, collapsedBlocos, onToggleBloco }) {
   )
 }
 
-export default function Sidebar({ documento, onSelect, searchResults, searchLoading, onClearSearch, activeBlocoId, onNavigate, expandirTodos, onToggleExpandirTodos, collapsedBlocos, onToggleBloco }) {
-  const sidebarRef = useRef(null)
+export default function Sidebar({ documento, onSelect, searchResults, searchLoading, onClearSearch, activeBlocoId, onNavigate, expandirTodos, onToggleExpandirTodos, collapsedBlocos, onToggleBloco, width }) {
+  const [tooltip, setTooltip] = useState(null)
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 })
+  const tooltipTimer = useRef(null)
+
+  const showTooltip = useCallback((content, e) => {
+    if (tooltipTimer.current) clearTimeout(tooltipTimer.current)
+    setTooltipPos({ x: e.clientX, y: e.clientY })
+    tooltipTimer.current = setTimeout(() => setTooltip(content), 300)
+  }, [])
+
+  const moveTooltip = useCallback((e) => {
+    if (tooltipTimer.current) setTooltipPos({ x: e.clientX, y: e.clientY })
+  }, [])
+
+  const hideTooltip = useCallback(() => {
+    if (tooltipTimer.current) clearTimeout(tooltipTimer.current)
+    setTooltip(null)
+  }, [])
 
   return (
-    <aside className="w-60 border-r border-gray-200 bg-white flex flex-col shrink-0" ref={sidebarRef}>
+    <aside className="border-r border-gray-200 bg-white flex flex-col shrink-0" style={{ width }}>
       {searchResults !== null ? (
         <div className="flex-1 overflow-y-auto p-3">
           <div className="flex items-center justify-between mb-3">
@@ -87,6 +123,15 @@ export default function Sidebar({ documento, onSelect, searchResults, searchLoad
                       }
                     }
                   }}
+                  onMouseEnter={(e) => showTooltip(
+                    <div>
+                      <div className="font-semibold mb-0.5">{r.titulo}</div>
+                      <div className="text-gray-300 text-[10px]">{r.texto_preview}</div>
+                    </div>,
+                    e
+                  )}
+                  onMouseMove={(e) => moveTooltip(e)}
+                  onMouseLeave={hideTooltip}
                   className="w-full text-left p-3 bg-white border border-gray-200 rounded-lg hover:border-blue-200 hover:shadow-sm transition-all"
                 >
                   <span className="text-xs text-blue-600 font-mono">{r.id_code}</span>
@@ -121,11 +166,15 @@ export default function Sidebar({ documento, onSelect, searchResults, searchLoad
                 ativo={activeBlocoId === `bloco-${bloco.id}`}
                 collapsedBlocos={collapsedBlocos}
                 onToggleBloco={onToggleBloco}
+                showTooltip={showTooltip}
+                moveTooltip={moveTooltip}
+                hideTooltip={hideTooltip}
               />
             ))}
           </div>
         </div>
       )}
+      <Tooltip visible={!!tooltip} x={tooltipPos.x} y={tooltipPos.y} content={tooltip} />
     </aside>
   )
 }

@@ -9,6 +9,7 @@ async function api(path, options = {}) {
     const err = await res.json().catch(() => ({ erro: 'Erro desconhecido' }));
     throw new Error(err.erro || err.detail || `Erro ${res.status}`);
   }
+  if (res.status === 204) return null
   return res.json();
 }
 
@@ -41,5 +42,16 @@ export function salvarPosicoes(slug, posicoes) {
   return api(`/documentos/${slug}/posicoes/`, {
     method: 'PATCH',
     body: JSON.stringify({ posicoes }),
+  });
+}
+
+export function deletarDocumento(slug) {
+  return api(`/documentos/${slug}/delete/`, { method: 'DELETE' });
+}
+
+export function atualizarDocumento(slug, data) {
+  return api(`/documentos/${slug}/atualizar/`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
   });
 }
