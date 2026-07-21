@@ -5,7 +5,11 @@ const LAYOUT_OPTIONS = [
   { value: 'treeVertical', label: 'Árvore Vertical' },
   { value: 'treeHorizontal', label: 'Árvore Horizontal' },
   { value: 'convex', label: 'Convexo' },
-  { value: 'force', label: 'Força' },
+  { value: 'organic', label: 'Orgânico' },
+  { value: 'spring', label: 'Elétrico' },
+  { value: 'balloon', label: 'Balão' },
+  { value: 'spiral', label: 'Espiral' },
+  { value: 'hierarchical', label: 'Hierárquico' },
 ]
 
 export default function Header({ docsList, activeSlug, onSelectDocumento, onSearch, onUploadJSON, onUploadText, onExportJSON, onExportPNG, onDeleteDocumento, onAtualizarDocumento, searchVersion, layoutType, onSelectLayout }) {

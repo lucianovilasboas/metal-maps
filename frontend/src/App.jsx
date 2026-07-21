@@ -138,15 +138,18 @@ export default function App() {
       try {
         const data = JSON.parse(saved)
         setCollapsedBlocos(new Set(data.collapsed || []))
+        if (data.expandirTodos != null) setExpandirTodos(data.expandirTodos)
       } catch {
         const allIds = new Set()
         ;(function p(b) { for (const x of b) { allIds.add(`bloco-${x.id}`); if (x.filhos?.length) p(x.filhos) } })(documento.blocos || [])
         setCollapsedBlocos(allIds)
+        setExpandirTodos(false)
       }
     } else {
       const allIds = new Set()
       ;(function p(b) { for (const x of b) { allIds.add(`bloco-${x.id}`); if (x.filhos?.length) p(x.filhos) } })(documento.blocos || [])
       setCollapsedBlocos(allIds)
+      setExpandirTodos(false)
     }
   }, [documento?.slug])
 
@@ -156,15 +159,9 @@ export default function App() {
     let state = {}
     try { state = existing ? JSON.parse(existing) : {} } catch { state = {} }
     state.collapsed = [...collapsedBlocos]
+    state.expandirTodos = expandirTodos
     localStorage.setItem(`mm-state-${documento.slug}`, JSON.stringify(state))
-  }, [collapsedBlocos, documento?.slug])
-
-  useEffect(() => {
-    if (!documento?.blocos) return
-    const allIds = new Set()
-    ;(function p(b) { for (const x of b) { allIds.add(`bloco-${x.id}`); if (x.filhos?.length) p(x.filhos) } })(documento.blocos)
-    setCollapsedBlocos(expandirTodos ? new Set() : allIds)
-  }, [expandirTodos, documento?.slug])
+  }, [collapsedBlocos, expandirTodos, documento?.slug])
 
   const handleToggleBloco = useCallback((blocoId) => {
     setCollapsedBlocos((prev) => {
@@ -332,7 +329,17 @@ export default function App() {
           activeBlocoId={activeBlocoId}
           onNavigate={handleNavigate}
           expandirTodos={expandirTodos}
-          onToggleExpandirTodos={() => setExpandirTodos(v => !v)}
+          onToggleExpandirTodos={() => setExpandirTodos(v => {
+            const novo = !v
+            if (novo) {
+              setCollapsedBlocos(new Set())
+            } else {
+              const allIds = new Set()
+              ;(function p(b) { for (const x of b) { allIds.add(`bloco-${x.id}`); if (x.filhos?.length) p(x.filhos) } })(documento?.blocos || [])
+              setCollapsedBlocos(allIds)
+            }
+            return novo
+          })}
           collapsedBlocos={collapsedBlocos}
           onToggleBloco={handleToggleBloco}
           width={sidebarWidth}
@@ -353,7 +360,6 @@ export default function App() {
             activeBlocoId={activeBlocoId}
             onNavigate={handleNavigate}
             layoutType={layoutType}
-            expandirTodos={expandirTodos}
             collapsedBlocos={collapsedBlocos}
             onToggleBloco={handleToggleBloco}
           />

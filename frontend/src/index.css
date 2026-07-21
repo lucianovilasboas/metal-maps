@@ -2,6 +2,11 @@
 
 .react-flow__node {
   cursor: pointer;
+  transition: transform 0.35s ease;
+}
+
+.react-flow__node.dragging {
+  transition: none;
 }
 
 .react-flow__controls-button {

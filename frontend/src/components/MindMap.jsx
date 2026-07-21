@@ -161,6 +161,146 @@ function bestHandles(srcNode, tgtNode) {
   return { sourceHandle: 'left', targetHandle: 'right' }
 }
 
+function aplicarRepulsao(base, minDist, iteracoes, damping = 0.80) {
+  const nodeList = base.nodes.map(n => {
+    const c = nodeCenter(n)
+    return { id: n.id, x: c.x, y: c.y }
+  })
+
+  const relacionados = new Set()
+  for (const edge of base.edges) {
+    relacionados.add(`${edge.source}::${edge.target}`)
+    relacionados.add(`${edge.target}::${edge.source}`)
+  }
+
+  for (let iter = 0; iter < iteracoes; iter++) {
+    const forces = {}
+    for (const n of nodeList) forces[n.id] = { fx: 0, fy: 0 }
+
+    for (let i = 0; i < nodeList.length; i++) {
+      for (let j = i + 1; j < nodeList.length; j++) {
+        const a = nodeList[i], b = nodeList[j]
+        if (relacionados.has(`${a.id}::${b.id}`)) continue
+        let dx = b.x - a.x, dy = b.y - a.y
+        let dist = Math.sqrt(dx * dx + dy * dy) || 1
+        if (dist < minDist) {
+          const f = (minDist - dist) * 0.06
+          forces[a.id].fx -= f * dx / dist
+          forces[a.id].fy -= f * dy / dist
+          forces[b.id].fx += f * dx / dist
+          forces[b.id].fy += f * dy / dist
+        }
+      }
+    }
+
+    for (const n of nodeList) {
+      if (n.id === 'doc') continue
+      n.x += forces[n.id].fx * damping
+      n.y += forces[n.id].fy * damping
+    }
+  }
+
+  for (const n of nodeList) {
+    const nd = base.nodes.find(x => x.id === n.id)
+    if (nd && n.id !== 'doc') {
+      const d = nodeDim(nd)
+      nd.position.x = n.x - d.w / 2
+      nd.position.y = n.y - d.h / 2
+    }
+  }
+
+  return base
+}
+
+function resolverColisoes(base, maxPasses = 10) {
+  const nodeList = base.nodes.map(n => {
+    const c = nodeCenter(n)
+    const d = nodeDim(n)
+    return { id: n.id, x: c.x, y: c.y, w: d.w, h: d.h }
+  })
+
+  const relacionados = new Set()
+  for (const edge of base.edges) {
+    relacionados.add(`${edge.source}::${edge.target}`)
+    relacionados.add(`${edge.target}::${edge.source}`)
+  }
+
+  for (let pass = 0; pass < maxPasses; pass++) {
+    let moved = false
+    for (let i = 0; i < nodeList.length; i++) {
+      for (let j = i + 1; j < nodeList.length; j++) {
+        const a = nodeList[i], b = nodeList[j]
+        if (relacionados.has(`${a.id}::${b.id}`)) continue
+        if (a.id === 'doc' && b.id === 'doc') continue
+
+        const minX = (a.w + b.w) / 2 + 6
+        const minY = (a.h + b.h) / 2 + 4
+
+        const dx = b.x - a.x
+        const dy = b.y - a.y
+        const ox = Math.max(0, minX - Math.abs(dx))
+        const oy = Math.max(0, minY - Math.abs(dy))
+
+        if (ox > 0 && oy > 0) {
+          moved = true
+          const signX = dx >= 0 ? 1 : -1
+          const signY = dy >= 0 ? 1 : -1
+
+          if (ox < oy) {
+            const push = ox / 2
+            if (a.id !== 'doc') a.x -= push * signX
+            if (b.id !== 'doc') b.x += push * signX
+          } else {
+            const push = oy / 2
+            if (a.id !== 'doc') a.y -= push * signY
+            if (b.id !== 'doc') b.y += push * signY
+          }
+        }
+      }
+    }
+    if (!moved) break
+  }
+
+  for (const edge of base.edges) {
+    const src = nodeList.find(n => n.id === edge.source)
+    const tgt = nodeList.find(n => n.id === edge.target)
+    if (!src || !tgt) continue
+    const mx = (src.x + tgt.x) / 2
+    const my = (src.y + tgt.y) / 2
+    for (const n of nodeList) {
+      if (n.id === edge.source || n.id === edge.target) continue
+      const dx = mx - n.x, dy = my - n.y
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1
+      const minD = (n.w + n.h) / 2 + 20
+      if (dist < minD) {
+        const push = (minD - dist) * 0.2
+        if (src.id !== 'doc') { src.x += (dx / dist) * push; src.y += (dy / dist) * push }
+        if (tgt.id !== 'doc') { tgt.x += (dx / dist) * push; tgt.y += (dy / dist) * push }
+      }
+    }
+  }
+
+  for (const n of nodeList) {
+    const nd = base.nodes.find(x => x.id === n.id)
+    if (nd && n.id !== 'doc') {
+      nd.position.x = n.x - n.w / 2
+      nd.position.y = n.y - n.h / 2
+    }
+  }
+
+  for (const edge of base.edges) {
+    const src = base.nodes.find(n => n.id === edge.source)
+    const tgt = base.nodes.find(n => n.id === edge.target)
+    if (src && tgt) {
+      const h = bestHandles(src, tgt)
+      edge.sourceHandle = h.sourceHandle
+      edge.targetHandle = h.targetHandle
+    }
+  }
+
+  return base
+}
+
 function contarArtigosRecursivo(bloco) {
   let total = (bloco.artigos || []).length
   for (const f of (bloco.filhos || [])) total += contarArtigosRecursivo(f)
@@ -222,8 +362,8 @@ function radialLayout(documento, collapsed, draggedPositions) {
         const blocoNode = allNodes.find(n => n.id === blocoId)
         const h = bestHandles(parentNode, blocoNode)
         const edgeStyle = depth <= 1
-          ? { stroke: '#94a3b8', strokeWidth: 2 }
-          : { stroke: '#cbd5e1', strokeWidth: 1.5 }
+          ? { stroke: '#94a3b8', strokeWidth: 1.5, opacity: 0.55 }
+          : { stroke: '#cbd5e1', strokeWidth: 1, opacity: 0.45 }
         allEdges.push({
           id: `e-${parentId}-${blocoId}`,
           source: parentId,
@@ -243,27 +383,39 @@ function radialLayout(documento, collapsed, draggedPositions) {
           const childArcSpan = Math.min(angleStep * 0.8, Math.PI * 0.6)
           layoutRecursivo(subBlocos, blocoId, midAngle, childArcSpan, depth + 1)
         } else if (arts.length > 0) {
-          const artR = LEVEL_RADII[depth + 1] != null ? LEVEL_RADII[depth + 1] : LEVEL_RADII[LEVEL_RADII.length - 1]
-          const artSpan = angleStep * 0.75
-          const artStart = midAngle - artSpan / 2
+          const artW = NODE_W - 20
+          const artH = NODE_H - 8
+          const blocoNode = allNodes.find(n => n.id === blocoId)
 
-          arts.forEach((art, aj) => {
-            const artAngle = arts.length > 1
-              ? artStart + (artSpan * aj) / (arts.length - 1)
-              : midAngle
-            const artW = NODE_W - 20
-            const artH = NODE_H - 8
+          const localG = new dagre.graphlib.Graph()
+          localG.setDefaultEdgeLabel(() => ({}))
+          localG.setGraph({ rankdir: 'LR', nodesep: 20, ranksep: 35, marginx: 10, marginy: 8 })
+          localG.setNode(blocoId, { width: NODE_W, height: NODE_H })
+          for (const art of arts) {
             const artId = `art-${art.id}`
+            localG.setNode(artId, { width: artW, height: artH })
+            localG.setEdge(blocoId, artId)
+          }
+          dagre.layout(localG)
+
+          const blocoDagre = localG.node(blocoId)
+          const originX = blocoDagre ? bx - blocoDagre.x : bx - NODE_W / 2
+          const originY = blocoDagre ? by - blocoDagre.y : by - NODE_H / 2
+
+          for (const art of arts) {
+            const artId = `art-${art.id}`
+            const artDagre = localG.node(artId)
+            const artX = artDagre ? originX + artDagre.x - artW / 2 : bx + 60
+            const artY = artDagre ? originY + artDagre.y - artH / 2 : by + (arts.indexOf(art) - (arts.length - 1) / 2) * 55
 
             allNodes.push({
               id: artId,
               type: 'articleNode',
-              position: dp(artId) || { x: (centerX + artR * Math.cos(artAngle)) - artW / 2, y: (centerY + artR * Math.sin(artAngle)) - artH / 2 },
-            data: { label: art.titulo, id_code: art.id_code || art.id, incisoCount: (art.incisos || []).length + (art.paragrafos || []).length, resumo: (art.caput || art.texto || '').slice(0, 150) },
+              position: dp(artId) || { x: artX, y: artY },
+              data: { label: art.titulo, id_code: art.id_code || art.id, incisoCount: (art.incisos || []).length + (art.paragrafos || []).length, resumo: (art.caput || art.texto || '').slice(0, 150) },
             })
 
-            const blocoNode = allNodes.find(n => n.id === blocoId)
-            const artNode = allNodes.find(n => n.id === artId)
+            const artNode = allNodes[allNodes.length - 1]
             if (blocoNode && artNode) {
               const h = bestHandles(blocoNode, artNode)
               allEdges.push({
@@ -273,10 +425,10 @@ function radialLayout(documento, collapsed, draggedPositions) {
                 sourceHandle: h.sourceHandle,
                 targetHandle: h.targetHandle,
                 type: 'bezier',
-                style: { stroke: '#d1d5db', strokeWidth: 1.5 },
+                style: { stroke: '#d1d5db', strokeWidth: 1, opacity: 0.45 },
               })
             }
-          })
+          }
         }
       }
     })
@@ -285,7 +437,7 @@ function radialLayout(documento, collapsed, draggedPositions) {
   const topLevelArc = 2 * Math.PI * 0.9
   layoutRecursivo(documento.blocos, 'doc', -Math.PI / 2, topLevelArc, 0)
 
-  return { nodes: allNodes, edges: allEdges }
+  return resolverColisoes(aplicarRepulsao({ nodes: allNodes, edges: allEdges }, 110, 20))
 }
 
 function acharBlocosRecursivo(blocos) {
@@ -312,7 +464,7 @@ function treeLayout(documento, collapsed, draggedPositions, rankdir) {
   const allEdges = []
   const g = new dagre.graphlib.Graph()
   g.setDefaultEdgeLabel(() => ({}))
-  g.setGraph({ rankdir, nodesep: 30, ranksep: 80, marginx: 20, marginy: 20 })
+  g.setGraph({ rankdir, nodesep: 20, ranksep: 50, marginx: 15, marginy: 15 })
 
   function addToGraph(parentId, blocos) {
     for (const bloco of blocos) {
@@ -386,7 +538,7 @@ function treeLayout(documento, collapsed, draggedPositions, rankdir) {
       source: edge.v,
       target: edge.w,
       type: 'smoothstep',
-      style: { stroke: '#94a3b8', strokeWidth: 1.5 },
+      style: { stroke: '#94a3b8', strokeWidth: 1, opacity: 0.45 },
     })
   }
 
@@ -440,7 +592,7 @@ function convexLayout(documento, collapsed, draggedPositions) {
       source: 'doc',
       target: blocoId,
       type: 'smoothstep',
-      style: { stroke: '#94a3b8', strokeWidth: 1.5 },
+      style: { stroke: '#94a3b8', strokeWidth: 1, opacity: 0.45 },
     })
 
     if (!collapsed.has(blocoId)) {
@@ -462,7 +614,7 @@ function convexLayout(documento, collapsed, draggedPositions) {
           source: blocoId,
           target: artId,
           type: 'smoothstep',
-          style: { stroke: '#d1d5db', strokeWidth: 1.5 },
+          style: { stroke: '#d1d5db', strokeWidth: 1, opacity: 0.45 },
         })
       })
     }
@@ -471,64 +623,45 @@ function convexLayout(documento, collapsed, draggedPositions) {
   return { nodes: allNodes, edges: allEdges }
 }
 
-function forceLayout(documento, collapsed, draggedPositions) {
-  if (!documento?.blocos) return { nodes: [], edges: [] }
+function organicLayout(documento, collapsed, draggedPositions) {
+  const base = treeLayout(documento, collapsed, draggedPositions, 'LR')
+  if (!base.nodes.length) return base
 
   const dp = (id) => draggedPositions[id] || null
-  const allNodes = []
-  const allEdges = []
-  const centerX = 0
-  const centerY = 0
   const nodeList = []
-  const todosBlocos = []
-  ;(function p(b) { for (const x of b) { todosBlocos.push(x); if (x.filhos?.length) p(x.filhos) } })(documento.blocos)
 
-  allNodes.push({ id: 'doc', type: 'docNode', position: dp('doc') || { x: centerX - ROOT_W / 2, y: centerY - ROOT_H / 2 }, data: { label: documento.titulo, ementa: documento.ementa } })
-  nodeList.push({ id: 'doc', x: centerX, y: centerY, vx: 0, vy: 0 })
-
-  for (const bloco of todosBlocos) {
-    const blocoId = `bloco-${bloco.id}`
-    const angle = Math.random() * 2 * Math.PI
-    const rad = 100 + Math.random() * 200
-    allNodes.push({ id: blocoId, type: 'chapterNode', position: dp(blocoId) || { x: centerX + Math.cos(angle) * rad - NODE_W / 2, y: centerY + Math.sin(angle) * rad - NODE_H / 2 }, data: { label: `${bloco.rotulo} ${bloco.titulo}`.trim(), tipo: bloco.tipo, id_code: bloco.rotulo || bloco.id, collapsed: collapsed.has(blocoId), count: contarArtigosRecursivo(bloco), onToggle: undefined } })
-    const pos = dp(blocoId) || allNodes[allNodes.length - 1].position
-    nodeList.push({ id: blocoId, x: pos.x + NODE_W / 2, y: pos.y + NODE_H / 2, vx: 0, vy: 0 })
-    allEdges.push({ id: `e-doc-${blocoId}`, source: 'doc', target: blocoId, type: 'smoothstep', style: { stroke: '#94a3b8', strokeWidth: 1.5 } })
-
-    if (!collapsed.has(blocoId)) {
-      const arts = bloco.filhos?.length ? coletarArtigosRecursivo(bloco) : (bloco.artigos || [])
-      for (const art of arts) {
-        const artId = `art-${art.id}`
-        const aAngle = Math.random() * 2 * Math.PI
-        const aRad = 50 + Math.random() * 100
-        allNodes.push({ id: artId, type: 'articleNode', position: dp(artId) || { x: pos.x + Math.cos(aAngle) * aRad - (NODE_W - 20) / 2, y: pos.y + Math.sin(aAngle) * aRad - (NODE_H - 8) / 2 }, data: { label: art.titulo, id_code: art.id_code || art.id, incisoCount: (art.incisos || []).length + (art.paragrafos || []).length, resumo: (art.caput || art.texto || '').slice(0, 150) } })
-        nodeList.push({ id: artId, x: pos.x + Math.cos(aAngle) * aRad, y: pos.y + Math.sin(aAngle) * aRad, vx: 0, vy: 0 })
-        allEdges.push({ id: `e-${blocoId}-${artId}`, source: blocoId, target: artId, type: 'smoothstep', style: { stroke: '#d1d5db', strokeWidth: 1.5 } })
-      }
-    }
+  for (const nd of base.nodes) {
+    const c = nodeCenter(nd)
+    nodeList.push({ id: nd.id, x: c.x, y: c.y, vx: 0, vy: 0 })
   }
 
-  for (let iter = 0; iter < 80; iter++) {
+  for (let iter = 0; iter < 25; iter++) {
     const forces = {}
     for (const n of nodeList) forces[n.id] = { fx: 0, fy: 0 }
+
     for (let i = 0; i < nodeList.length; i++) {
       for (let j = i + 1; j < nodeList.length; j++) {
         const a = nodeList[i]; const b = nodeList[j]
         let dx = b.x - a.x; let dy = b.y - a.y; let dist = Math.sqrt(dx * dx + dy * dy) || 1
-        const f = 6000 / (dist * dist)
-        forces[a.id].fx -= f * dx / dist; forces[a.id].fy -= f * dy / dist
-        forces[b.id].fx += f * dx / dist; forces[b.id].fy += f * dy / dist
+        const minDist = a.id.startsWith('art-') || b.id.startsWith('art-') ? 110 : 140
+        if (dist < minDist) {
+          const f = (minDist - dist) * 0.06
+          forces[a.id].fx -= f * dx / dist; forces[a.id].fy -= f * dy / dist
+          forces[b.id].fx += f * dx / dist; forces[b.id].fy += f * dy / dist
+        }
       }
     }
-    for (const edge of allEdges) {
+
+    for (const edge of base.edges) {
       const a = nodeList.find(n => n.id === edge.source)
       const b = nodeList.find(n => n.id === edge.target)
       if (!a || !b) continue
       let dx = b.x - a.x; let dy = b.y - a.y; let dist = Math.sqrt(dx * dx + dy * dy) || 1
-      const f = (dist - 150) * 0.01
+      const f = (dist - 170) * 0.006
       forces[a.id].fx += f * dx / dist; forces[a.id].fy += f * dy / dist
       forces[b.id].fx -= f * dx / dist; forces[b.id].fy -= f * dy / dist
     }
+
     for (const n of nodeList) {
       if (n.id === 'doc') continue
       n.vx = (n.vx + forces[n.id].fx) * 0.85
@@ -538,14 +671,346 @@ function forceLayout(documento, collapsed, draggedPositions) {
   }
 
   for (const n of nodeList) {
-    const nd = allNodes.find(x => x.id === n.id)
+    const nd = base.nodes.find(x => x.id === n.id)
     if (nd && n.id !== 'doc') {
       const dw = n.id.startsWith('art-') ? NODE_W - 20 : NODE_W
       const dh = n.id.startsWith('art-') ? NODE_H - 8 : NODE_H
       nd.position = dp(n.id) || { x: n.x - dw / 2, y: n.y - dh / 2 }
     }
   }
-  return { nodes: allNodes, edges: allEdges }
+
+  return resolverColisoes(base)
+}
+
+function hierarchicalLayout(documento, collapsed, draggedPositions) {
+  if (!documento?.blocos) return { nodes: [], edges: [] }
+
+  const dp = (id) => draggedPositions[id] || null
+  const allNodes = []
+  const allEdges = []
+  const g = new dagre.graphlib.Graph()
+  g.setDefaultEdgeLabel(() => ({}))
+  g.setGraph({ rankdir: 'TB', nodesep: 25, ranksep: 35, marginx: 15, marginy: 15 })
+
+  allNodes.push({
+    id: 'doc', type: 'docNode', position: { x: 0, y: 0 },
+    data: { label: documento.titulo, ementa: documento.ementa },
+  })
+  g.setNode('doc', { width: ROOT_W, height: ROOT_H })
+
+  function addToGraph(parentId, blocos) {
+    for (const bloco of blocos) {
+      const blocoId = `bloco-${bloco.id}`
+      g.setNode(blocoId, { width: NODE_W, height: NODE_H })
+      g.setEdge(parentId, blocoId)
+      allNodes.push({
+        id: blocoId, type: 'chapterNode', position: { x: 0, y: 0 },
+        data: {
+          label: `${bloco.rotulo} ${bloco.titulo}`.trim(), tipo: bloco.tipo,
+          id_code: bloco.rotulo || bloco.id, collapsed: collapsed.has(blocoId),
+          count: contarArtigosRecursivo(bloco), onToggle: undefined,
+        },
+      })
+      if (!collapsed.has(blocoId)) {
+        if (bloco.filhos?.length) addToGraph(blocoId, bloco.filhos)
+        for (const art of (bloco.artigos || [])) {
+          const artId = `art-${art.id}`
+          g.setNode(artId, { width: NODE_W - 20, height: NODE_H - 8 })
+          g.setEdge(blocoId, artId)
+          allNodes.push({
+            id: artId, type: 'articleNode', position: { x: 0, y: 0 },
+            data: { label: art.titulo, id_code: art.id_code || art.id, incisoCount: (art.incisos || []).length + (art.paragrafos || []).length, resumo: (art.caput || art.texto || '').slice(0, 150) },
+          })
+        }
+      }
+    }
+  }
+
+  for (const bloco of documento.blocos) g.setEdge('doc', `bloco-${bloco.id}`)
+  addToGraph('doc', documento.blocos)
+  dagre.layout(g)
+
+  for (const node of allNodes) {
+    const pos = g.node(node.id)
+    if (pos) {
+      const dw = node.type === 'articleNode' ? (NODE_W - 20) : node.id === 'doc' ? ROOT_W : NODE_W
+      const dh = node.id === 'doc' ? ROOT_H : NODE_H
+      node.position = dp(node.id) || { x: pos.x - dw / 2, y: pos.y - dh / 2 }
+    }
+  }
+
+  for (const edge of g.edges()) {
+    allEdges.push({
+      id: `e-${edge.v}-${edge.w}`, source: edge.v, target: edge.w,
+      type: 'smoothstep', style: { stroke: '#94a3b8', strokeWidth: 1, opacity: 0.45 },
+    })
+  }
+
+  return resolverColisoes({ nodes: allNodes, edges: allEdges })
+}
+
+function balloonLayout(documento, collapsed, draggedPositions) {
+  if (!documento?.blocos) return { nodes: [], edges: [] }
+
+  const dp = (id) => draggedPositions[id] || null
+  const allNodes = []
+  const allEdges = []
+  const centerX = 0, centerY = 0
+
+  allNodes.push({
+    id: 'doc',
+    type: 'docNode',
+    position: dp('doc') || { x: centerX - ROOT_W / 2, y: centerY - ROOT_H / 2 },
+    data: { label: documento.titulo, ementa: documento.ementa },
+  })
+
+  function posNode(id, type, data, pos) {
+    const d = nodeDim({ id, type })
+    const node = { id, type, position: dp(id) || { x: pos.x - d.w / 2, y: pos.y - d.h / 2 }, data }
+    allNodes.push(node)
+    return node
+  }
+
+  function layoutSubtree(blocos, parentId, parentX, parentY, parentAngle, parentArcSpan, depth) {
+    if (blocos.length === 0) return
+    const R = 180 + depth * 120
+    const angleStep = parentArcSpan / blocos.length
+
+    blocos.forEach((bloco, i) => {
+      const midAngle = parentAngle - parentArcSpan / 2 + angleStep / 2 + i * angleStep
+      const bx = parentX + R * Math.cos(midAngle)
+      const by = parentY + R * Math.sin(midAngle)
+      const blocoId = `bloco-${bloco.id}`
+
+      const blocoNode = posNode(blocoId, 'chapterNode', {
+        label: `${bloco.rotulo} ${bloco.titulo}`.trim(),
+        tipo: bloco.tipo,
+        id_code: bloco.rotulo || bloco.id,
+        collapsed: collapsed.has(blocoId),
+        count: contarArtigosRecursivo(bloco),
+        onToggle: undefined,
+      }, { x: bx, y: by })
+
+      const parentNode = allNodes.find(n => n.id === parentId)
+      const h = bestHandles(parentNode, blocoNode)
+      allEdges.push({
+        id: `e-${parentId}-${blocoId}`, source: parentId, target: blocoId,
+        sourceHandle: h.sourceHandle, targetHandle: h.targetHandle,
+        type: 'bezier',
+        style: { stroke: '#94a3b8', strokeWidth: depth === 0 ? 1.5 : 1, opacity: depth === 0 ? 0.55 : 0.45 },
+      })
+
+      if (!collapsed.has(blocoId)) {
+        const arts = bloco.artigos || []
+        const subBlocos = bloco.filhos || []
+
+        if (arts.length > 0) {
+          const artR = 130
+          const artSpan = Math.PI * 0.9
+          const artStart = midAngle - artSpan / 2
+
+          arts.forEach((art, aj) => {
+            const artAngle = arts.length > 1
+              ? artStart + (artSpan * aj) / (arts.length - 1)
+              : midAngle
+            const artId = `art-${art.id}`
+
+            const artNode = posNode(artId, 'articleNode', {
+              label: art.titulo,
+              id_code: art.id_code || art.id,
+              incisoCount: (art.incisos || []).length + (art.paragrafos || []).length,
+              resumo: (art.caput || art.texto || '').slice(0, 150),
+            }, { x: bx + artR * Math.cos(artAngle), y: by + artR * Math.sin(artAngle) })
+
+            const h2 = bestHandles(blocoNode, artNode)
+            allEdges.push({
+              id: `e-${blocoId}-${artId}`, source: blocoId, target: artId,
+              sourceHandle: h2.sourceHandle, targetHandle: h2.targetHandle,
+              type: 'bezier',
+              style: { stroke: '#d1d5db', strokeWidth: 1, opacity: 0.45 },
+            })
+          })
+        }
+
+        if (subBlocos.length > 0) {
+          const subArcSpan = Math.min(angleStep * 0.8, Math.PI * 0.7)
+          layoutSubtree(subBlocos, blocoId, bx, by, midAngle + Math.PI * 0.3, subArcSpan, depth + 1)
+        }
+      }
+    })
+  }
+
+  layoutSubtree(documento.blocos, 'doc', centerX, centerY, -Math.PI / 2, 2 * Math.PI * 0.9, 0)
+
+  return resolverColisoes(aplicarRepulsao({ nodes: allNodes, edges: allEdges }, 100, 8))
+}
+
+function springLayout(documento, collapsed, draggedPositions) {
+  const base = treeLayout(documento, collapsed, draggedPositions, 'LR')
+  if (!base.nodes.length) return base
+
+  const dp = (id) => draggedPositions[id] || null
+  const nodeList = []
+
+  for (const nd of base.nodes) {
+    const c = nodeCenter(nd)
+    nodeList.push({ id: nd.id, x: c.x, y: c.y, vx: 0, vy: 0 })
+  }
+
+  for (let iter = 0; iter < 120; iter++) {
+    const forces = {}
+    for (const n of nodeList) forces[n.id] = { fx: 0, fy: 0 }
+
+    for (let i = 0; i < nodeList.length; i++) {
+      for (let j = i + 1; j < nodeList.length; j++) {
+        const a = nodeList[i], b = nodeList[j]
+        let dx = b.x - a.x, dy = b.y - a.y
+        let dist = Math.sqrt(dx * dx + dy * dy) || 1
+        const f = 8000 / (dist * dist)
+        forces[a.id].fx -= f * dx / dist; forces[a.id].fy -= f * dy / dist
+        forces[b.id].fx += f * dx / dist; forces[b.id].fy += f * dy / dist
+      }
+    }
+
+    for (const edge of base.edges) {
+      const a = nodeList.find(n => n.id === edge.source)
+      const b = nodeList.find(n => n.id === edge.target)
+      if (!a || !b) continue
+      let dx = b.x - a.x, dy = b.y - a.y
+      let dist = Math.sqrt(dx * dx + dy * dy) || 1
+      const f = (dist - 180) * 0.015
+      forces[a.id].fx += f * dx / dist; forces[a.id].fy += f * dy / dist
+      forces[b.id].fx -= f * dx / dist; forces[b.id].fy -= f * dy / dist
+    }
+
+    for (const n of nodeList) {
+      if (n.id === 'doc') continue
+      n.vx = (n.vx + forces[n.id].fx) * 0.90
+      n.vy = (n.vy + forces[n.id].fy) * 0.90
+      n.x += n.vx; n.y += n.vy
+    }
+  }
+
+  for (const n of nodeList) {
+    const nd = base.nodes.find(x => x.id === n.id)
+    if (nd && n.id !== 'doc') {
+      const dw = n.id.startsWith('art-') ? NODE_W - 20 : NODE_W
+      const dh = n.id.startsWith('art-') ? NODE_H - 8 : NODE_H
+      nd.position = dp(n.id) || { x: n.x - dw / 2, y: n.y - dh / 2 }
+    }
+  }
+
+  return resolverColisoes(base)
+}
+
+function spiralLayout(documento, collapsed, draggedPositions) {
+  if (!documento?.blocos) return { nodes: [], edges: [] }
+
+  const dp = (id) => draggedPositions[id] || null
+  const allNodes = []
+  const allEdges = []
+  const centerX = 0, centerY = 0
+
+  allNodes.push({
+    id: 'doc',
+    type: 'docNode',
+    position: dp('doc') || { x: centerX - ROOT_W / 2, y: centerY - ROOT_H / 2 },
+    data: { label: documento.titulo, ementa: documento.ementa },
+  })
+
+  const todosBlocos = []
+  ;(function p(b) { for (const x of b) { todosBlocos.push(x); if (x.filhos?.length) p(x.filhos) } })(documento.blocos)
+
+  const allVisible = []
+  for (const bloco of todosBlocos) {
+    const blocoId = `bloco-${bloco.id}`
+    allVisible.push({ bloco, blocoId, type: 'chapterNode', depth: 0, parentId: null })
+    if (!collapsed.has(blocoId)) {
+      for (const art of (bloco.artigos || [])) {
+        allVisible.push({ bloco, art, artId: `art-${art.id}`, type: 'articleNode', depth: 1, parentId: blocoId })
+      }
+    }
+  }
+
+  const total = allVisible.length
+  const dTheta = (2 * Math.PI) / Math.max(total + 4, 10)
+  const a = 30, b = 55
+
+  const nodeMap = {}
+  allVisible.forEach((v, i) => {
+    const theta = dTheta * i
+    const r = a + b * theta
+    const x = centerX + r * Math.cos(theta)
+    const y = centerY + r * Math.sin(theta)
+
+    if (v.type === 'chapterNode') {
+      const blocoNode = {
+        id: v.blocoId,
+        type: 'chapterNode',
+        position: dp(v.blocoId) || { x: x - NODE_W / 2, y: y - NODE_H / 2 },
+        data: {
+          label: `${v.bloco.rotulo} ${v.bloco.titulo}`.trim(),
+          tipo: v.bloco.tipo,
+          id_code: v.bloco.rotulo || v.bloco.id,
+          collapsed: collapsed.has(v.blocoId),
+          count: contarArtigosRecursivo(v.bloco),
+          onToggle: undefined,
+        },
+      }
+      allNodes.push(blocoNode)
+      nodeMap[v.blocoId] = blocoNode
+    } else {
+      const artNode = {
+        id: v.artId,
+        type: 'articleNode',
+        position: dp(v.artId) || { x: x - (NODE_W - 20) / 2, y: y - (NODE_H - 8) / 2 },
+        data: {
+          label: v.art.titulo,
+          id_code: v.art.id_code || v.art.id,
+          incisoCount: (v.art.incisos || []).length + (v.art.paragrafos || []).length,
+          resumo: (v.art.caput || v.art.texto || '').slice(0, 150),
+        },
+      }
+      allNodes.push(artNode)
+      nodeMap[v.artId] = artNode
+    }
+  })
+
+  const docNode = allNodes.find(n => n.id === 'doc')
+  const todosBlocosMap = {}
+  for (const bloco of todosBlocos) todosBlocosMap[bloco.id] = bloco
+
+  for (const bloco of todosBlocos) {
+    const blocoNode = nodeMap[`bloco-${bloco.id}`]
+    if (!blocoNode) continue
+
+    const parentBloco = todosBlocos.find(b => (b.filhos || []).some(f => f.id === bloco.id))
+    const parentNode = parentBloco ? nodeMap[`bloco-${parentBloco.id}`] : docNode
+    if (parentNode) {
+      const h = bestHandles(parentNode, blocoNode)
+      allEdges.push({
+        id: `e-${parentNode.id}-${blocoNode.id}`, source: parentNode.id, target: blocoNode.id,
+        sourceHandle: h.sourceHandle, targetHandle: h.targetHandle,
+        type: 'bezier', style: { stroke: parentNode.id === 'doc' ? '#94a3b8' : '#cbd5e1', strokeWidth: 1, opacity: 0.45 },
+      })
+    }
+
+    if (!collapsed.has(`bloco-${bloco.id}`)) {
+      for (const art of (bloco.artigos || [])) {
+        const artNode = nodeMap[`art-${art.id}`]
+        if (artNode) {
+          const h = bestHandles(blocoNode, artNode)
+          allEdges.push({
+            id: `e-${blocoNode.id}-${artNode.id}`, source: blocoNode.id, target: artNode.id,
+            sourceHandle: h.sourceHandle, targetHandle: h.targetHandle,
+            type: 'bezier', style: { stroke: '#d1d5db', strokeWidth: 1, opacity: 0.45 },
+          })
+        }
+      }
+    }
+  }
+
+  return resolverColisoes(aplicarRepulsao({ nodes: allNodes, edges: allEdges }, 100, 5))
 }
 
 const LAYOUTS = {
@@ -553,10 +1018,14 @@ const LAYOUTS = {
   treeVertical: (doc, col, dp) => treeLayout(doc, col, dp, 'TB'),
   treeHorizontal: (doc, col, dp) => treeLayout(doc, col, dp, 'LR'),
   convex: (doc, col, dp) => convexLayout(doc, col, dp),
-  force: (doc, col, dp) => forceLayout(doc, col, dp),
+  organic: (doc, col, dp) => organicLayout(doc, col, dp),
+  spring: (doc, col, dp) => springLayout(doc, col, dp),
+  balloon: (doc, col, dp) => balloonLayout(doc, col, dp),
+  spiral: (doc, col, dp) => spiralLayout(doc, col, dp),
+  hierarchical: (doc, col, dp) => hierarchicalLayout(doc, col, dp),
 }
 
-export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, containerRef, searchResults, activeBlocoId, layoutType, expandirTodos, collapsedBlocos, onToggleBloco }) {
+export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, containerRef, searchResults, activeBlocoId, layoutType, collapsedBlocos, onToggleBloco }) {
   const [expandedArts, setExpandedArts] = useState(new Set())
   const [focoId, setFocoId] = useState(null)
   const [mostrarRel, setMostrarRel] = useState(false)
@@ -593,21 +1062,6 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
 
     setLoadVersion((v) => v + 1)
   }, [documento?.slug])
-
-  function saveState() {
-    if (!documento?.slug) return
-    const existing = localStorage.getItem(`mm-state-${documento.slug}`)
-    let state = {}
-    try { state = existing ? JSON.parse(existing) : {} } catch { state = {} }
-    state.positions = draggedPositionsRef.current
-    state.collapsed = [...collapsedBlocos]
-    state.expandedArts = [...expandedArts]
-    localStorage.setItem(`mm-state-${documento.slug}`, JSON.stringify(state))
-  }
-
-  useEffect(() => {
-    if (loadVersion > 0) saveState()
-  }, [collapsedBlocos, documento?.slug, loadVersion, expandedArts])
 
   useEffect(() => {
     if (!activeBlocoId) return
@@ -701,7 +1155,7 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
               sourceHandle: h.sourceHandle,
               targetHandle: h.targetHandle,
               type: 'bezier',
-              style: { stroke: '#d1d5db', strokeWidth: 1.5 },
+              style: { stroke: '#d1d5db', strokeWidth: 1, opacity: 0.45 },
             })
           })
         }
@@ -732,7 +1186,7 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
                 sourceHandle: h.sourceHandle,
                 targetHandle: h.targetHandle,
                 type: 'smoothstep',
-                style: { stroke: '#93c5fd', strokeWidth: 1.5, strokeDasharray: '4 4' },
+                style: { stroke: '#93c5fd', strokeWidth: 1, opacity: 0.5, strokeDasharray: '4 4' },
               })
             }
           })
@@ -817,7 +1271,6 @@ export default function MindMap({ documento, onSelectArtigo, onSalvarPosicoes, c
       let state
       try { state = existing ? JSON.parse(existing) : {} } catch { state = {} }
       state.positions = draggedPositionsRef.current
-      state.collapsed = [...collapsedBlocos]
       state.expandedArts = [...expandedArts]
       localStorage.setItem(`mm-state-${documento.slug}`, JSON.stringify(state))
 
